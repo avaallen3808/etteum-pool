@@ -17,7 +17,7 @@ from app.providers.yepapi import YepAPIAdapter
 from app.providers.codex import CodexProviderAdapter
 from app.providers.qoder import QoderProviderAdapter
 from app.providers.gitlab_duo import GitLabDuoProviderAdapter
-from app.providers.base import NormalizedAccount
+from app.providers.deepseek_web import DeepSeekWebProviderAdapter
 from app.errors.codes import ErrorCode
 from app.errors.exceptions import BatcherError, RetryableBatcherError
 
@@ -379,11 +379,11 @@ async def main(email: str, password: str):
             "codex": (CodexProviderAdapter(), NormalizedAccount(provider="codex", identifier=email, secret=password)),
             "qoder": (QoderProviderAdapter(), NormalizedAccount(provider="qoder", identifier=email, secret=password)),
             "gitlab-duo": (GitLabDuoProviderAdapter(), NormalizedAccount(provider="gitlab-duo", identifier=email, secret=password)),
+            "deepseek-web": (DeepSeekWebProviderAdapter(), NormalizedAccount(provider="deepseek-web", identifier=email, secret=password)),
         }
         tasks = []
         task_names = []
-        for name in ["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo"]:
-            if name in allowed_providers:
+        for name in ["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo", "deepseek-web"]:
                 adapter, account = provider_specs[name]
                 tasks.append(run_provider(adapter, account))
                 task_names.append(name)

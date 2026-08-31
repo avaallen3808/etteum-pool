@@ -90,7 +90,7 @@ class LoginQueue {
 
     for (const item of items) {
       for (const provider of item.providers) {
-        if (!["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo"].includes(provider)) continue;
+        if (!["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo", "deepseek-web", "gemini-web", "qwen-web", "zai-web"].includes(provider)) continue;
 
         try {
           const [newAccount] = await db
