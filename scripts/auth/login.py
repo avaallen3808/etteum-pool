@@ -386,16 +386,21 @@ async def main(email: str, password: str):
         tasks = []
         task_names = []
         for name in ["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo", "deepseek-web"]:
-                adapter, account = provider_specs[name]
-                tasks.append(run_provider(adapter, account))
-                task_names.append(name)
+            if allowed_providers and name not in allowed_providers:
+                continue
+            adapter, account = provider_specs[name]
+            tasks.append(run_provider(adapter, account))
+            task_names.append(name)
         results = await asyncio.gather(*tasks, return_exceptions=True)
+        provider_results = {}
+        for name, res in zip(task_names, results):
+            if isinstance(res, BaseException):
+                provider_results[name] = {"success": False, "provider": name, "error": str(res)}
+            else:
+                provider_results[name] = res
         result = {"type": "result"}
         for name in ["kiro", "kiro-pro", "codebuddy", "wavespeed", "canva", "yepapi", "codex", "qoder", "gitlab-duo", "deepseek-web"]:
-            result[name] = {"success": False, "provider": name, "error": "skipped"}
-            if isinstance(provider_result, BaseException):
-                provider_result = {"success": False, "provider": name, "error": str(provider_result)}
-            result[name] = provider_result
+            result[name] = provider_results.get(name, {"success": False, "provider": name, "error": "skipped"})
         emit(result)
         return
 
