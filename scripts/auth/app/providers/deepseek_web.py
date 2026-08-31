@@ -1,10 +1,16 @@
+
 from __future__ import annotations
 import asyncio
 import json
 import os
-_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
-DEEPSEEK_AUTH_URL = "https://chat.deepseek.com/auth"
+import re
+from typing import Any
+from app.providers.base import ProviderAdapter, NormalizedAccount
+from app.errors.codes import ErrorCode
+from app.errors.exceptions import NonRetryableBatcherError, RetryableBatcherError
 
+DEEPSEEK_LOGIN_URL = "https://chat.deepseek.com/sign_in"
+_EMAIL_RE = re.compile(r"^[^@\s]+@[^@\s]+$")
 class DeepSeekWebProviderAdapter(ProviderAdapter):
     name = "deepseek-web"
 
