@@ -72,36 +72,63 @@ async def run_deepseek(prompt: str, cookies: str, messages=None):
     from playwright.async_api import async_playwright
     # chat.deepseek.com uses userToken in localStorage
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(headless=True, executable_path="/home/looee/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome", args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
+        context = await browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36", locale="en-US")
         page = await context.new_page()
         try:
             await page.goto("https://chat.deepseek.com/", wait_until="domcontentloaded", timeout=30000)
             # Set userToken in localStorage if provided as "userToken=xxx" or raw token
             token = cookies.strip()
             if "userToken" in token:
-                # extract value
                 if "=" in token:
-                    token = token.split("=", 1)[1].strip().strip('"').strip("'")
-                # token may be JSON string
-            await page.evaluate(f'localStorage.setItem("userToken", "{token}")')
+                    token = token.split("=", 1)[1].strip()
+                # Token is JSON like {"value": "...", "__version": "0"} — serialize
+                # it as a JS literal so quotes/backslashes survive evaluate().
+                try:
+                    parsed = json.loads(token)
+                    token_literal = json.dumps(json.dumps(parsed))
+                except json.JSONDecodeError:
+                    token_literal = json.dumps(json.dumps(token))
+            else:
+                token_literal = json.dumps(json.dumps(token))
+            await page.evaluate("localStorage.setItem('userToken', " + token_literal + ")")
             await page.reload(wait_until="domcontentloaded")
-            await page.wait_for_timeout(3000)
-            # Find textarea
+            # Wait for the chat input to be interactive (login state ready)
+            input_box = None
             try:
-                await page.locator('textarea[placeholder*="Message"], textarea[placeholder*="Send"], div[contenteditable="true"]').first.fill(prompt, timeout=10000)
+                input_box = await page.locator(
+                    'textarea[placeholder*="Message"], textarea[placeholder*="Send"], '
+                    'textarea[placeholder*="消息"], div[contenteditable="true"], '
+                    'textarea._27c9245'
+                ).first.wait_for(state="visible", timeout=30000)
+                input_el = page.locator(
+                    'textarea[placeholder*="Message"], textarea[placeholder*="Send"], '
+                    'textarea[placeholder*="消息"], div[contenteditable="true"], '
+                    'textarea._27c9245'
+                ).first
+                await input_el.fill(prompt, timeout=10000)
                 await page.keyboard.press("Enter")
-            except:
+            except Exception:
                 return {"ok": False, "error": "DeepSeek input not found"}
             await page.wait_for_timeout(6000)
+            prev = ""
             for _ in range(12):
                 try:
                     texts = await page.locator('div[class*="message"], div.ds-message, div[class*="response"]').all_inner_texts()
                     if texts:
-                        last = texts[-1].strip()
-                        if last and last != prompt and len(last) > 5:
-                            await browser.close()
-                            return {"ok": True, "text": last}
+                        # skip the user's own prompt bubble; grab the last distinct assistant reply
+                        candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt]
+                        last = candidates[-1] if candidates else ""
+                        if last and last != prev:
+                            prev = last
+                            # give streaming a moment to settle, then confirm it is stable
+                            await page.wait_for_timeout(1500)
+                            texts2 = await page.locator('div[class*="message"], div.ds-message, div[class*="response"]').all_inner_texts()
+                            cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
+                            last2 = cand2[-1] if cand2 else ""
+                            if last2 and last2 == last:
+                                await browser.close()
+                                return {"ok": True, "text": last2}
                 except:
                     pass
                 await page.wait_for_timeout(2000)
