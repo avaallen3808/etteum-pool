@@ -1,0 +1,49 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Etteum Cookie Exporter — Bookmarklet</title>
+<style>
+  body { font-family: system-ui, -apple-system, sans-serif; max-width: 700px; margin: 40px auto; padding: 20px; line-height: 1.6; color: #1a1a1a; }
+  h1 { font-size: 1.6rem; margin-bottom: 8px; }
+  .sub { color: #666; margin-bottom: 24px; }
+  .bookmarklet { display: inline-block; padding: 12px 24px; background: #000; color: #fff; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 1rem; cursor: grab; margin: 16px 0; }
+  .bookmarklet:active { cursor: grabbing; }
+  .step { background: #f5f5f5; border-radius: 8px; padding: 16px; margin: 12px 0; }
+  .step b { color: #000; }
+  code { background: #eee; padding: 2px 6px; border-radius: 4px; font-size: 0.85em; }
+  .warn { background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; padding: 12px; margin: 16px 0; font-size: 0.9em; }
+</style>
+</head>
+<body>
+<h1>🔖 Etteum Cookie Exporter</h1>
+<p class="sub">1-klik copy cookie/token untuk Gemini, DeepSeek, Qwen, Z.AI Web — langsung paste ke Dashboard</p>
+
+<a class="bookmarklet" href="javascript:(async()=>{const s=location.hostname;let v='',n='';if(s.includes('gemini.google.com')){const m=document.cookie.match(/__Secure-1PSID=([^;]+)/);v=m?`__Secure-1PSID=${m[1]}`:document.cookie;n='Gemini Web (__Secure-1PSID)';}else if(s.includes('chat.deepseek.com')){v=localStorage.getItem('userToken')||'';if(v.startsWith('&quot;'))try{v=JSON.parse(v)}catch{};n='DeepSeek Web (userToken)';if(v) v=`userToken=${v}`;}else if(s.includes('chat.qwen.ai')||s.includes('qwen.ai')){v=document.cookie;n='Qwen Web (Cookie)';}else if(s.includes('chat.z.ai')||s.includes('z.ai')){v=localStorage.getItem('token')||localStorage.getItem('access_token')||'';n='Z.AI Web (token)';if(v) v=`token=${v}`;}else{v=document.cookie;n='Generic Cookie';}if(!v){alert('No cookie/token found for '+s);return;}await navigator.clipboard.writeText(v);alert(n+' copied! Paste into Etteum Dashboard → Accounts → '+n.split(' (')[0]);})();">Etteum Export Cookie</a>
+<p style="color:#666; font-size:0.9em;">← Drag link di atas ke bookmarks bar kamu</p>
+
+<div class="step">
+  <b>Langkah 1:</b> Drag tombol hitam di atas ke <b>Bookmarks Bar</b> (Ctrl+Shift+B untuk show bar)
+</div>
+<div class="step">
+  <b>Langkah 2:</b> Buka salah satu:
+  <ul>
+    <li><code>gemini.google.com</code> → login → klik bookmarklet → auto copy <code>__Secure-1PSID</code></li>
+    <li><code>chat.deepseek.com</code> → login → klik bookmarklet → auto copy <code>userToken</code></li>
+    <li><code>chat.qwen.ai</code> → login → klik bookmarklet → auto copy <code>Cookie</code></li>
+    <li><code>chat.z.ai</code> → login → klik bookmarklet → auto copy <code>token</code></li>
+  </ul>
+</div>
+<div class="step">
+  <b>Langkah 3:</b> Buka <code>http://localhost:1931</code> → <b>Accounts</b> → pilih <b>Gemini Web / DeepSeek Web / Qwen Web / Z.AI Web</b> → <b>Single</b> → Email: bebas (ex: <code>my@gmail.com</code>), Password: <b>paste cookie</b> (Ctrl+V) → Add Account
+</div>
+
+<div class="warn">
+  ⚠️ Cookie itu sensitif — jangan share. Etteum simpen ter-encrypt (XOR) di <code>data/poolprox3.db</code> pakai <code>ENCRYPTION_KEY</code>. Bookmarklet cuma jalan di browser kamu, nggak ngirim kemana-mana.
+</div>
+
+<p style="font-size:0.85em; color:#666;">File bookmarklet: <code>dashboard/public/etteum-cookie-exporter.js</code> — bisa juga copy manual dari situ.</p>
+<p><a href="/">← Kembali ke Dashboard</a></p>
+</body>
+</html>

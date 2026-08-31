@@ -64,6 +64,15 @@ interface Account {
 
 const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai", "chutes", "gemini-web", "deepseek-web", "qwen-web", "zai-web"];
 
+const FREE_PROVIDERS: Provider[] = ["opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai", "chutes"];
+const WEB_PROVIDERS: Provider[] = ["gemini-web", "deepseek-web", "qwen-web", "zai-web", "canva"];
+
+function groupForProvider(p: Provider): "free" | "web" | "other" {
+  if ((FREE_PROVIDERS as string[]).includes(p)) return "free";
+  if ((WEB_PROVIDERS as string[]).includes(p)) return "web";
+  return "other";
+}
+
 function labelProvider(provider: string) {
   if (provider === "kiro-pro") return "Kiro Pro";
   if (provider === "codebuddy") return "CodeBuddy";
@@ -1175,252 +1184,68 @@ export default function Accounts() {
         </div>
       )}
 
-      {/* Provider cards */}
-      <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
-        {providerStats.map((stat) => (
-          <Card
-            key={stat.provider}
-            className="border-[var(--border)] cursor-pointer hover:border-[var(--primary)]/50 transition-colors"
-            onClick={() => navigate(`/accounts/${stat.provider}`)}
-          >
-            <CardHeader className="pb-3">
-              <div className="flex items-center justify-between">
-                <CardTitle className="text-base">{labelProvider(stat.provider)}</CardTitle>
-                <span className="text-xs text-[var(--muted-foreground)]">{stat.total} accounts</span>
-              </div>
-            </CardHeader>
-            <CardContent className="space-y-4">
-              {/* Status grid */}
-              <div className="grid grid-cols-4 gap-2 text-center">
-                <div className="rounded-md bg-[var(--secondary)] p-2">
-                  <p className="text-lg font-bold text-[var(--success)]">{stat.active}</p>
-                  <p className="text-[10px] text-[var(--muted-foreground)]">Active</p>
-                </div>
-                <div className="rounded-md bg-[var(--secondary)] p-2">
-                  <p className="text-lg font-bold text-[var(--warning)]">{stat.exhausted}</p>
-                  <p className="text-[10px] text-[var(--muted-foreground)]">Exhausted</p>
-                </div>
-                <div className="rounded-md bg-[var(--secondary)] p-2">
-                  <p className="text-lg font-bold text-[var(--warning)]">{stat.pending}</p>
-                  <p className="text-[10px] text-[var(--muted-foreground)]">Pending</p>
-                </div>
-                <div className="rounded-md bg-[var(--secondary)] p-2">
-                  <p className="text-lg font-bold text-[var(--error)]">{stat.error}</p>
-                  <p className="text-[10px] text-[var(--muted-foreground)]">Error</p>
-                </div>
-              </div>
-
-              {/* Credits remaining */}
-              <div className="space-y-1.5">
-                <div className="flex justify-between text-xs">
-                  <span className="text-[var(--muted-foreground)]">Credits</span>
-                  <span className="text-[var(--foreground)]">
-                    {stat.credits.remaining.toFixed(1)} / {stat.credits.total.toFixed(1)} remaining
-                  </span>
-                </div>
-                <Progress
-                  value={stat.credits.total > 0 ? Math.round((stat.credits.remaining / stat.credits.total) * 100) : 0}
-                  className="h-2"
-                />
-              </div>
-
-              {/* WarmUp progress - shown while warmup is active */}
-              {warmupProgress[stat.provider] && warmupProgress[stat.provider].total > 0 && (
-                <div className="space-y-1.5">
-                  <div className="flex justify-between text-xs">
-                    <span className="text-[var(--muted-foreground)]">WarmUp</span>
-                    <span className="text-[var(--foreground)]">
-                      {warmupProgress[stat.provider].completed} / {warmupProgress[stat.provider].total} completed
-                    </span>
-                  </div>
-                  <Progress
-                    value={warmupProgress[stat.provider].total > 0 ? Math.round((warmupProgress[stat.provider].completed / warmupProgress[stat.provider].total) * 100) : 0}
-                    className="h-2"
-                  />
-                </div>
-              )}
-
-              {/* Auto WarmUp toggle + countdown */}
-              <div
-                className="flex items-center justify-between gap-2 rounded-md border border-[var(--border)] bg-[var(--secondary)]/40 p-2"
-                onClick={(e) => e.stopPropagation()}
-              >
-                <div className="flex items-center gap-2 min-w-0">
-                  <Flame className={`h-4 w-4 shrink-0 ${autoWarmupEnabledFor(stat.provider) ? "text-[var(--warning)]" : "text-[var(--muted-foreground)]"}`} />
-                  <div className="min-w-0">
-                    <p className="text-xs font-medium text-[var(--foreground)] leading-tight">Auto WarmUp</p>
-                    <p className="text-[10px] text-[var(--muted-foreground)] leading-tight">
-                      {autoWarmupEnabledFor(stat.provider)
-                        ? autoWarmup?.nextRunAt
-                          ? `Next in ${countdownLabel()} · every ${autoWarmup.intervalMinutes}m`
-                          : `Every ${autoWarmup?.intervalMinutes ?? 15}m`
-                        : "Disabled"}
-                    </p>
-                  </div>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => handleToggleAutoWarmup(stat.provider)}
-                  className={`relative inline-flex h-5 w-9 shrink-0 items-center rounded-full transition-colors ${
-                    autoWarmupEnabledFor(stat.provider) ? "bg-[var(--primary)]" : "bg-[var(--border)]"
-                  }`}
-                  aria-label={`Toggle auto warmup for ${labelProvider(stat.provider)}`}
+      {/* Provider cards — grouped Free / Web / Other */}
+      {(() => {
+        const freeStats = providerStats.filter((s) => groupForProvider(s.provider as Provider) === "free");
+        const webStats = providerStats.filter((s) => groupForProvider(s.provider as Provider) === "web");
+        const otherStats = providerStats.filter((s) => groupForProvider(s.provider as Provider) === "other");
+        const Group = ({ title, desc, stats, color }: { title: string; desc: string; stats: typeof providerStats; color: string }) => (
+          <div className="space-y-3">
+            <div className="flex items-center gap-2">
+              <span className={`h-2 w-2 rounded-full ${color}`} />
+              <h2 className="text-sm font-semibold text-[var(--foreground)]">{title}</h2>
+              <span className="text-xs text-[var(--muted-foreground)]">— {desc}</span>
+              <span className="ml-auto text-xs text-[var(--muted-foreground)]">{stats.reduce((a, s) => a + s.total, 0)} accounts</span>
+            </div>
+            <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
+              {stats.map((stat) => (
+                <Card
+                  key={stat.provider}
+                  className="border-[var(--border)] cursor-pointer hover:border-[var(--primary)]/50 transition-colors"
+                  onClick={() => navigate(`/accounts/${stat.provider}`)}
                 >
-                  <span
-                    className={`inline-block h-3.5 w-3.5 transform rounded-full bg-white transition-transform ${
-                      autoWarmupEnabledFor(stat.provider) ? "translate-x-5" : "translate-x-1"
-                    }`}
-                  />
-                </button>
-              </div>
-
-              {/* Buttons */}
-              <div className="grid grid-cols-3 gap-2" onClick={(e) => e.stopPropagation()}>
-                <Button className="w-full" variant="default" size="sm" onClick={() => handleOpenAddDialog(stat.provider)}>
-                  <Plus className="mr-1 h-4 w-4" /> Add
-                </Button>
-                <Button className="w-full" variant="outline" size="sm" onClick={() => handleWarmupProvider(stat.provider)} disabled={Boolean(warmupProgress[stat.provider])}>
-                  <RefreshCw className="mr-1 h-4 w-4" /> Warmup
-                </Button>
-                <Button className="w-full" variant="outline" size="sm" onClick={() => handleRetryErrors(stat.provider)} disabled={stat.error === 0}>
-                  <RotateCcw className="mr-1 h-4 w-4" /> Retry
-                </Button>
-              </div>
-            </CardContent>
-          </Card>
-        ))}
-      </div>
-
-      {/* BYOK Providers Section */}
-      <div className="space-y-4">
-        <div className="flex items-center justify-between rounded-lg border border-[var(--border)] bg-[var(--card)] p-4">
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-[var(--primary)]/10 text-[var(--primary)]">
-              <Key className="h-5 w-5" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-[var(--foreground)]">Custom Providers (BYOK)</h2>
-              <p className="text-sm text-[var(--muted-foreground)]">Bring Your Own Key — use your own API providers</p>
-            </div>
-          </div>
-          <Button onClick={() => setByokDialogOpen(true)} className="gap-2 shadow-sm">
-            <Plus className="h-4 w-4" /> Add Provider
-          </Button>
-        </div>
-
-        {byokProviders.length === 0 ? (
-          <div className="rounded-lg border border-dashed border-[var(--primary)]/20 bg-[var(--primary)]/[0.02] p-10 text-center">
-            <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-[var(--primary)]/10">
-              <Shield className="h-7 w-7 text-[var(--primary)]" />
-            </div>
-            <p className="text-sm font-medium text-[var(--foreground)]">No custom providers configured yet</p>
-            <p className="text-xs text-[var(--muted-foreground)] mt-1.5 mb-4">Connect your own API provider to use custom models with your keys</p>
-            <Button size="sm" onClick={() => setByokDialogOpen(true)} className="gap-2">
-              <Plus className="h-4 w-4" /> Add Your First Provider
-            </Button>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-3">
-            {byokProviders.map((provider) => (
-              <Card
-                key={provider.id}
-                className="border-[var(--border)] overflow-hidden hover:border-[var(--primary)]/50 transition-all duration-200 cursor-pointer"
-                onClick={() => navigate(`/accounts/byok/${provider.label}`)}
-              >
-                <CardHeader className="pb-3 hover:bg-[var(--secondary)]/30 transition-colors">
-                  <div className="flex items-start justify-between">
-                    <div className="flex-1 min-w-0">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <CardTitle className="text-base truncate">{provider.label}</CardTitle>
-                        <Badge
-                          variant={(provider.active_key_count || 0) > 0 ? "default" : "secondary"}
-                          className={(provider.active_key_count || 0) > 0
-                            ? "bg-[var(--primary)]/15 text-[var(--primary)] border border-[var(--primary)]/30"
-                            : "bg-[var(--warning)]/10 text-[var(--warning)] border border-[var(--warning)]/30"
-                          }
-                        >
-                          {(provider.active_key_count || 0) > 0 ? "● Ready" : "○ No active key"}
-                        </Badge>
+                  <CardHeader className="pb-3">
+                    <div className="flex items-center justify-between">
+                      <CardTitle className="text-base">{labelProvider(stat.provider)}</CardTitle>
+                      <span className="text-xs text-[var(--muted-foreground)]">{stat.total} accounts</span>
+                    </div>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-4 gap-2 text-center">
+                      <div className="rounded-md bg-[var(--secondary)] p-2">
+                        <p className="text-lg font-bold text-[var(--success)]">{stat.active}</p>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">Active</p>
                       </div>
-                      <p className="text-xs text-[var(--muted-foreground)] mt-1 truncate">{provider.base_url}</p>
-                      <div className="mt-2 flex flex-wrap items-center gap-1.5 text-[10px] text-[var(--muted-foreground)]">
-                        <span className="rounded-full bg-[var(--secondary)] px-2 py-0.5">{provider.active_key_count ?? 0}/{provider.key_count ?? provider.keys?.length ?? 1} keys active</span>
-                        <span className="rounded-full bg-[var(--secondary)] px-2 py-0.5">LB: {provider.load_balancing_method === "sequential" ? "Sequential" : provider.load_balancing_method === "least_inflight" ? "Least in-flight" : "Round robin"}</span>
+                      <div className="rounded-md bg-[var(--secondary)] p-2">
+                        <p className="text-lg font-bold text-[var(--warning)]">{stat.exhausted}</p>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">Exhausted</p>
+                      </div>
+                      <div className="rounded-md bg-[var(--secondary)] p-2">
+                        <p className="text-lg font-bold text-[var(--warning)]">{stat.pending}</p>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">Pending</p>
+                      </div>
+                      <div className="rounded-md bg-[var(--secondary)] p-2">
+                        <p className="text-lg font-bold text-[var(--error)]">{stat.error}</p>
+                        <p className="text-[10px] text-[var(--muted-foreground)]">Error</p>
                       </div>
                     </div>
-                    <ChevronDown className="h-4 w-4 -rotate-90 text-[var(--muted-foreground)]" />
-                  </div>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <div className="space-y-2">
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[var(--muted-foreground)]">Format</span>
-                      <span className="text-[var(--foreground)] font-medium">{provider.format}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[var(--muted-foreground)]">Models</span>
-                      <span className="text-[var(--foreground)] font-medium">{provider.models.length}</span>
-                    </div>
-                    <div className="flex items-center justify-between text-xs">
-                      <span className="text-[var(--muted-foreground)]">API Keys</span>
-                      <span className="text-[var(--foreground)] font-medium">{provider.active_key_count ?? 0} active / {provider.key_count ?? provider.keys?.length ?? 1} total</span>
-                    </div>
-                  </div>
-
-                  <div className="space-y-1.5">
-                    <p className="text-xs text-[var(--muted-foreground)]">Available Models</p>
-                    <div className="flex flex-wrap gap-1 max-h-20 overflow-y-auto">
-                      {provider.available_models?.slice(0, 10).map((model) => (
-                        <Badge
-                          key={model}
-                          variant="outline"
-                          className="text-xs border-[var(--primary)]/20 text-[var(--primary)]/80 bg-[var(--primary)]/[0.05] font-mono cursor-copy"
-                          onClick={(e) => { e.stopPropagation(); copyByokModel(model); }}
-                          title="Click to copy model id"
-                        >
-                          {model}
-                        </Badge>
-                      ))}
-                      {provider.available_models && provider.available_models.length > 10 && (
-                        <Badge variant="outline" className="text-xs bg-[var(--primary)]/10 text-[var(--primary)] border-[var(--primary)]/30 font-medium">
-                          +{provider.available_models.length - 10} more
-                        </Badge>
-                      )}
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-3 gap-2 pt-3 border-t border-[var(--border)]/50">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 text-[var(--foreground)] hover:bg-[var(--secondary)] hover:text-[var(--foreground)]"
-                      onClick={(e) => { e.stopPropagation(); navigate(`/accounts/byok/${provider.label}`); }}
-                    >
-                      <Pencil className="h-3.5 w-3.5" /> Manage
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 border-[var(--info)]/30 text-[var(--info)] hover:bg-[var(--info)]/10 hover:text-[var(--info)]"
-                      onClick={(e) => { e.stopPropagation(); handleTestByok(provider.id, provider.label); }}
-                    >
-                      <Zap className="h-3.5 w-3.5" /> Test
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      className="gap-1.5 border-[var(--error)]/30 text-[var(--error)] hover:bg-[var(--error)]/10 hover:text-[var(--error)]"
-                      onClick={(e) => { e.stopPropagation(); handleDeleteByok(provider.id, provider.label); }}
-                    >
-                      <Trash2 className="h-3.5 w-3.5" /> Delete
-                    </Button>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
           </div>
-        )}
-      </div>
+        );
+        return (
+          <div className="space-y-8">
+            <Group title="Free API" desc="OpenAI-compatible, no CC — Groq, OpenRouter, Opencode, B.AI, Cerebras, Mistral, Nvidia, UncloseAI, Chutes" stats={freeStats} color="bg-emerald-500" />
+            <Group title="Web Cookie" desc="Via browser cookie — Gemini, DeepSeek, Qwen, Z.AI, Canva + bookmarklet" stats={webStats} color="bg-blue-500" />
+            <div className="flex justify-end">
+              <a href="/bookmarklet.html" target="_blank" rel="noreferrer" className="text-xs text-[var(--primary)] hover:underline">🔖 1-Click Cookie Exporter (Gemini/DeepSeek/Qwen/ZAI) →</a>
+            </div>
+            <Group title="Other" desc="OAuth / Paid / Enterprise — Kiro, CodeBuddy, Codex, Qoder, GitLab Duo, YouMind" stats={otherStats} color="bg-zinc-400" />
+          </div>
+        );
+      })()}
 
       {/* BYOK Add/Edit Dialog */}
       <Dialog open={byokDialogOpen} onOpenChange={(open) => !open && handleCloseByokDialog()}>
