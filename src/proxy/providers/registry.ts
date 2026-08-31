@@ -21,6 +21,9 @@ import { GeminiWebProvider } from "./gemini-web";
 import { DeepSeekWebProvider } from "./deepseek-web";
 import { QwenWebProvider } from "./qwen-web";
 import { ZaiWebProvider } from "./zai-web";
+import { db } from "../../db/index";
+import { accounts } from "../../db/schema";
+import { eq } from "drizzle-orm";
 /**
  * Single source of truth for the provider set.
  *
@@ -112,6 +115,27 @@ export const providerList: readonly BaseProvider[] = PROVIDER_ORDER;
 /** Refresh BYOK models from database. */
 export async function refreshByokModels(): Promise<void> {
   await byok.refreshModelsCache();
+}
+/** Refresh B.AI model list from upstream /models endpoint. */
+let lastBaiRefresh = 0;
+export async function refreshBaiModels(): Promise<void> {
+  // Throttle: only refresh once per minute at most; the model list rarely
+  // changes mid-session, and fetchQuota() also populates the cache.
+  if (Date.now() - lastBaiRefresh < 60_000) return;
+  lastBaiRefresh = Date.now();
+  try {
+    // We need a B.AI account to fetch the model list. Grab the first active one.
+    const baiAccounts = await db
+      .select()
+      .from(accounts)
+      .where(eq(accounts.provider, "bai"))
+      .limit(1);
+    const acct = baiAccounts[0];
+    if (!acct || !acct.enabled) return;
+    await bai.refreshModelList(acct);
+  } catch {
+    // Silently fail — BAI_MODELS fallback is fine
+  }
 }
 
 /** Refresh GitLab Duo models from every active gitlab-duo account's metadata. */

@@ -15,7 +15,7 @@ import { isBadUpstreamRequest, isInvalidModelError } from "./errors";
 import { prepareLogBody } from "./logging";
 import { resolveModelAlias } from "./model-mapping";
 import { eq, sql } from "drizzle-orm";
-import { providerList, refreshByokModels } from "./providers/registry";
+import { providerList, refreshByokModels, refreshBaiModels } from "./providers/registry";
 
 export const proxyRouter = new Hono();
 
@@ -592,6 +592,7 @@ proxyRouter.get("/v1/models", async (c) => {
   // Ensure BYOK cache is fresh before listing models.
   // Without this, the sync getModels() returns stale/empty supportedModels.
   await refreshByokModels();
+  await refreshBaiModels();
   const models = getAllModels();
   return c.json({
     object: "list",

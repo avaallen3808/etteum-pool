@@ -57,6 +57,13 @@ const BAI_MODELS: BaiModelDef[] = [
   { id: "bai-kimi-k2", upstream: "kimi-k2", context_window: 128000, max_output: 8000, route: "chat" },
   { id: "bai-grok-4", upstream: "grok-4", context_window: 128000, max_output: 8000, route: "chat" },
 ];
+// ── Upstream model cache (populated via /models) ────────────────────────
+// B.AI /models doesn't return context_window, but we still need to auto-discover
+// model IDs so the dashboard shows all 44+ models, not just the curated 14.
+const MODEL_CACHE_TTL = 10 * 60 * 1000; // 10 minutes
+let upstreamModelIds: string[] | null = null;
+let upstreamModelIdsFetchedAt = 0;
+let upstreamModelIdsPromise: Promise<void> | null = null;
 
 function normalizeModelId(model: string): string {
   const lower = model.toLowerCase().trim();
@@ -106,6 +113,57 @@ export class BaiProvider extends BaseProvider {
     creditRate: 0,
     creditSource: "estimated" as const,
   }));
+  /** Fetch /models from upstream B.AI and cache resolved model IDs */
+  async refreshModelList(account: Account): Promise<void> {
+    // Deduplicate concurrent calls
+    if (upstreamModelIdsPromise) return upstreamModelIdsPromise;
+    const started = Date.now();
+    if (started - upstreamModelIdsFetchedAt < MODEL_CACHE_TTL) return;
+    const apiKey = this.getApiKey(account);
+    if (!apiKey) return;
+    upstreamModelIdsPromise = (async () => {
+      try {
+        const resp = await fetch(MODELS_URL, {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        });
+        if (!resp.ok) return;
+        const data = (await resp.json()) as { data?: Array<{ id: string }> };
+        if (!data.data?.length) return;
+        upstreamModelIds = data.data.map((m) => m.id);
+        upstreamModelIdsFetchedAt = Date.now();
+      } catch {
+        // Silently fail; fallback to BAI_MODELS is fine
+      } finally {
+        upstreamModelIdsPromise = null;
+      }
+    })();
+    return upstreamModelIdsPromise;
+  }
+
+  /**
+   * Return merged model list: curated BAI_MODELS + any auto-discovered
+   * upstream models not already in BAI_MODELS.
+   */
+  override getModels(): ModelInfo[] {
+    const curated = this.supportedModels;
+    const curatedIds = new Set(curated.map((m) => m.id));
+    const discovered = (upstreamModelIds ?? [])
+      .filter((id) => !curatedIds.has(`bai-${id}`) && !curatedIds.has(`bai/${id}`))
+      .map((id) => ({
+        id: `bai-${id}`,
+        object: "model" as const,
+        created: Date.now(),
+        owned_by: "bai",
+        context_window: 128000,
+        max_output: 8000,
+        thinking: false,
+        vision: false,
+        creditUnit: "token" as const,
+        creditRate: 0,
+        creditSource: "estimated" as const,
+      }));
+    return curated.concat(discovered);
+  }
 
   private resolveModel(model: string): BaiModelDef | null {
     const lower = model.toLowerCase();
@@ -124,6 +182,10 @@ export class BaiProvider extends BaseProvider {
       };
     }
     return null;
+  }
+  /** True if the upstream model id appears in the cached /models list */
+  private isUpstreamModel(upstream: string): boolean {
+    return !!upstreamModelIds?.includes(upstream);
   }
 
   private getApiKey(account: Account): string {
@@ -175,7 +237,18 @@ export class BaiProvider extends BaseProvider {
         const text = await resp.text().catch(() => "");
         return { success: false, error: `B.AI quota probe HTTP ${resp.status}: ${text.slice(0, 160)}` };
       }
-      await resp.text().catch(() => "");
+      
+      // Opportunistically refresh the auto-discovered model cache from the
+      // /models response we already fetched. Never fails the quota probe.
+      try {
+        const modelsData = (await resp.json()) as { data?: Array<{ id: string }> };
+        if (modelsData.data?.length) {
+          upstreamModelIds = modelsData.data.map((m) => m.id);
+          upstreamModelIdsFetchedAt = Date.now();
+        }
+      } catch {
+        // non-JSON body — ignore, keep existing cache
+      }
       return { success: true, quota: { limit: -1, remaining: -1, used: 0, resetAt: null } };
     } catch (err) {
       return { success: false, error: err instanceof Error ? err.message : String(err) };
