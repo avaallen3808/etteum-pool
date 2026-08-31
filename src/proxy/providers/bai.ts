@@ -46,7 +46,12 @@ const BAI_MODELS: BaiModelDef[] = [
   { id: "bai-claude-sonnet-4.5", upstream: "claude-sonnet-4.5", context_window: 200000, max_output: 16000, route: "messages" },
   { id: "bai-claude-opus-4.5", upstream: "claude-opus-4.5", context_window: 200000, max_output: 16000, route: "messages" },
   { id: "bai-gemini-3-flash", upstream: "gemini-3-flash", context_window: 1000000, max_output: 8000, route: "chat" },
-  { id: "bai-deepseek-v3", upstream: "deepseek-v3", context_window: 128000, max_output: 8000, route: "chat" },
+  // B.AI-specific / web-harness models (deepseek-v4-flash family, mimo v2.5, glm-5.3-flash, qwen3.8-flash)
+  { id: "bai-deepseek-v4-flash", upstream: "deepseek-v4-flash", context_window: 131072, max_output: 8000, route: "chat" },
+  { id: "bai-deepseek-v4-flash-vision-exp", upstream: "deepseek-v4-flash-vision-exp", context_window: 131072, max_output: 16000, route: "chat" },
+  { id: "bai-mimo-v2.5", upstream: "mimo-v2.5", context_window: 1000000, max_output: 4000, route: "chat" },
+  { id: "bai-glm-5.3-flash", upstream: "glm-5.3-flash", context_window: 1000000, max_output: 8000, route: "chat" },
+  { id: "bai-qwen3.8-flash", upstream: "qwen3.8-flash", context_window: 1000000, max_output: 8000, route: "chat" },
   { id: "bai-qwen3-235b", upstream: "qwen3-235b", context_window: 128000, max_output: 8000, route: "chat" },
   { id: "bai-glm-4.7", upstream: "glm-4.7", context_window: 128000, max_output: 8000, route: "chat" },
   { id: "bai-kimi-k2", upstream: "kimi-k2", context_window: 128000, max_output: 8000, route: "chat" },
