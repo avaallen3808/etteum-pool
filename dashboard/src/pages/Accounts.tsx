@@ -134,6 +134,7 @@ export default function Accounts() {
   const [chutesApiKey, setChutesApiKey] = useState("");
   const [chutesBusy, setChutesBusy] = useState(false);
   const [codebuddyChinaApiKey, setCodebuddyChinaApiKey] = useState("");
+  const [loginPendingDialog, setLoginPendingDialog] = useState(false);
   const [loginPendingConcurrency, setLoginPendingConcurrency] = useState(2);
   const [byokProviders, setByokProviders] = useState<ByokProvider[]>([]);
   const [byokDialogOpen, setByokDialogOpen] = useState(false);
