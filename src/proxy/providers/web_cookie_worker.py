@@ -13,16 +13,20 @@ import sys
 import time
 import asyncio
 
+# Full Chrome binary + real UA required: bare headless shell gets blocked by
+# CloudFront/AWS WAF on chat.deepseek.com and chat.qwen.ai.
+CHROME_EXE = "/home/looee/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome"
+CHROME_ARGS = ["--no-sandbox", "--disable-blink-features=AutomationControlled"]
+REAL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
+
+
 async def run_gemini(prompt: str, cookies: str, messages=None):
     from playwright.async_api import async_playwright
     # gemini.google.com uses __Secure-1PSID cookie for auth, then uses batchexecute or gemini API via blazer
     # Simplified: use playwright to open gemini and extract response via exposed API
-    # For now, fallback to direct fetch via gemini's internal API using cookie
-    import re
-    # Try to use Gemini's internal API via fetch inside browser context
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
+        context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
         # Add cookies
         cookie_list = []
         for part in cookies.split(";"):
@@ -32,7 +36,10 @@ async def run_gemini(prompt: str, cookies: str, messages=None):
             name, value = part.split("=", 1)
             cookie_list.append({"name": name.strip(), "value": value.strip(), "domain": ".google.com", "path": "/"})
         if cookie_list:
-            await context.add_cookies(cookie_list)
+            try:
+                await context.add_cookies(cookie_list)
+            except:
+                pass
         page = await context.new_page()
         try:
             await page.goto("https://gemini.google.com/app", wait_until="domcontentloaded", timeout=30000)
@@ -44,15 +51,12 @@ async def run_gemini(prompt: str, cookies: str, messages=None):
                 await page.locator(input_sel).first.fill(prompt, timeout=10000)
                 await page.keyboard.press("Enter")
             except:
-                # fallback: try to use JS to set value
-                await page.evaluate(f'document.body.innerText.includes("Gemini")')
                 return {"ok": False, "error": "Gemini input not found — cookie may be invalid or page changed"}
             # Wait for response
             await page.wait_for_timeout(8000)
             # Try to extract last response
             for _ in range(15):
                 try:
-                    # Gemini responses are in message-content or response-container
                     texts = await page.locator('message-content, div[data-test-id="response-container"], div.model-response-text').all_inner_texts()
                     if texts:
                         last = texts[-1].strip()
@@ -68,12 +72,13 @@ async def run_gemini(prompt: str, cookies: str, messages=None):
             await browser.close()
             return {"ok": False, "error": str(e)}
 
+
 async def run_deepseek(prompt: str, cookies: str, messages=None):
     from playwright.async_api import async_playwright
     # chat.deepseek.com uses userToken in localStorage
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True, executable_path="/home/looee/.cache/ms-playwright/chromium-1234/chrome-linux64/chrome", args=["--no-sandbox", "--disable-blink-features=AutomationControlled"])
-        context = await browser.new_context(user_agent="Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36", locale="en-US")
+        browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
+        context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
         page = await context.new_page()
         try:
             await page.goto("https://chat.deepseek.com/", wait_until="domcontentloaded", timeout=30000)
@@ -94,9 +99,8 @@ async def run_deepseek(prompt: str, cookies: str, messages=None):
             await page.evaluate("localStorage.setItem('userToken', " + token_literal + ")")
             await page.reload(wait_until="domcontentloaded")
             # Wait for the chat input to be interactive (login state ready)
-            input_box = None
             try:
-                input_box = await page.locator(
+                await page.locator(
                     'textarea[placeholder*="Message"], textarea[placeholder*="Send"], '
                     'textarea[placeholder*="消息"], div[contenteditable="true"], '
                     'textarea._27c9245'
@@ -138,21 +142,23 @@ async def run_deepseek(prompt: str, cookies: str, messages=None):
             await browser.close()
             return {"ok": False, "error": str(e)}
 
+
 async def run_qwen(prompt: str, cookies: str, messages=None):
     from playwright.async_api import async_playwright
-    # chat.qwen.ai or qwen.ai
+    # chat.qwen.ai uses a full cookie jar (x-ap, sca, cna, tfstk, isg, ...)
+    # for tracking + session. No JWT in localStorage — auth rides on cookies.
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
-        # Add cookies
+        browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
+        context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
+        # Add cookies on all qwen domains
         cookie_list = []
         for part in cookies.split(";"):
             part = part.strip()
             if "=" not in part:
                 continue
             name, value = part.split("=", 1)
-            cookie_list.append({"name": name.strip(), "value": value.strip(), "domain": ".qwen.ai", "path": "/"})
-            cookie_list.append({"name": name.strip(), "value": value.strip(), "domain": ".chat.qwen.ai", "path": "/"})
+            for dom in [".qwen.ai", ".chat.qwen.ai", "chat.qwen.ai", "qwen.ai"]:
+                cookie_list.append({"name": name.strip(), "value": value.strip(), "domain": dom, "path": "/"})
         if cookie_list:
             try:
                 await context.add_cookies(cookie_list)
@@ -162,42 +168,79 @@ async def run_qwen(prompt: str, cookies: str, messages=None):
         try:
             await page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(3000)
+            # If guest chat is login-walled, bail fast with a clear error
+            body0 = await page.evaluate("document.body.innerText")
+            if "Log in to unlock" in body0 or ("Log in" in body0 and "Sign up" in body0):
+                await browser.close()
+                return {"ok": False, "error": "Qwen requires login - cookie is anonymous (no auth session)"}
+            # Wait for the chat input to be interactive
             try:
-                await page.locator('textarea, div[contenteditable="true"]').first.fill(prompt, timeout=10000)
+                input_el = page.locator(
+                    'textarea.message-input-textarea, textarea[placeholder*="Ask"], textarea, div[contenteditable="true"]'
+                ).first
+                await input_el.wait_for(state="visible", timeout=30000)
+                await input_el.fill(prompt, timeout=10000)
                 await page.keyboard.press("Enter")
-            except:
+            except Exception:
                 return {"ok": False, "error": "Qwen input not found"}
             await page.wait_for_timeout(6000)
+            prev = ""
             for _ in range(12):
+                # bail out early if the login wall popped up after sending
+                body = await page.evaluate("document.body.innerText")
+                if "Log in to unlock" in body:
+                    await browser.close()
+                    return {"ok": False, "error": "Qwen requires login - cookie is anonymous (no auth session)"}
                 try:
-                    texts = await page.locator('div[class*="message"], div[class*="answer"], div[class*="response"]').all_inner_texts()
-                    if texts:
-                        last = texts[-1].strip()
-                        if last and last != prompt and len(last) > 5:
+                    texts = await page.locator(
+                        'div[class*="markdown"], div[class*="md-body"], '
+                        'div[class*="message-content"], div[class*="answer-content"], '
+                        'div[class*="ds-markdown"], pre'
+                    ).all_inner_texts()
+                    candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt and "How can I help you?" not in t and len(t.strip()) > 1]
+                    last = candidates[-1] if candidates else ""
+                    if last and last != prev:
+                        prev = last
+                        await page.wait_for_timeout(1500)
+                        texts2 = await page.locator(
+                            'div[class*="markdown"], div[class*="md-body"], '
+                            'div[class*="message-content"], div[class*="answer-content"], '
+                            'div[class*="ds-markdown"], pre'
+                        ).all_inner_texts()
+                        cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt and "How can I help you?" not in t and len(t.strip()) > 1]
+                        last2 = cand2[-1] if cand2 else ""
+                        if last2 and last2 == last:
                             await browser.close()
-                            return {"ok": True, "text": last}
+                            return {"ok": True, "text": last2}
                 except:
                     pass
                 await page.wait_for_timeout(2000)
+            # Detect guest/login-block state
+            body = await page.evaluate("document.body.innerText")
+            if "Log in to unlock" in body or ("Log in" in body and "Sign up" in body):
+                await browser.close()
+                return {"ok": False, "error": "Qwen requires login - cookie is anonymous (no auth session)"}
             await browser.close()
             return {"ok": False, "error": "Timeout Qwen"}
         except Exception as e:
             await browser.close()
             return {"ok": False, "error": str(e)}
 
+
 async def run_zai(prompt: str, cookies: str, messages=None):
     from playwright.async_api import async_playwright
     # chat.z.ai uses token in localStorage
     async with async_playwright() as p:
-        browser = await p.chromium.launch(headless=True)
-        context = await browser.new_context()
+        browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
+        context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
         page = await context.new_page()
         try:
             await page.goto("https://chat.z.ai/", wait_until="domcontentloaded", timeout=30000)
             token = cookies.strip()
             if "token" in token and "=" in token:
                 token = token.split("=", 1)[1].strip().strip('"')
-            await page.evaluate(f'localStorage.setItem("token", "{token}")')
+            token_literal = json.dumps(json.dumps(token))
+            await page.evaluate("localStorage.setItem('token', " + token_literal + ")")
             await page.reload(wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
             try:
@@ -206,14 +249,21 @@ async def run_zai(prompt: str, cookies: str, messages=None):
             except:
                 return {"ok": False, "error": "ZAI input not found"}
             await page.wait_for_timeout(6000)
+            prev = ""
             for _ in range(12):
                 try:
                     texts = await page.locator('div[class*="message"], div[class*="answer"]').all_inner_texts()
-                    if texts:
-                        last = texts[-1].strip()
-                        if last and last != prompt and len(last) > 5:
+                    candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt]
+                    last = candidates[-1] if candidates else ""
+                    if last and last != prev:
+                        prev = last
+                        await page.wait_for_timeout(1500)
+                        texts2 = await page.locator('div[class*="message"], div[class*="answer"]').all_inner_texts()
+                        cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
+                        last2 = cand2[-1] if cand2 else ""
+                        if last2 and last2 == last:
                             await browser.close()
-                            return {"ok": True, "text": last}
+                            return {"ok": True, "text": last2}
                 except:
                     pass
                 await page.wait_for_timeout(2000)
@@ -222,6 +272,7 @@ async def run_zai(prompt: str, cookies: str, messages=None):
         except Exception as e:
             await browser.close()
             return {"ok": False, "error": str(e)}
+
 
 async def main():
     try:
@@ -269,9 +320,10 @@ async def main():
             res = await run_zai(prompt, cookies, data.get("messages"))
         else:
             res = {"ok": False, "error": f"Unknown site: {site}"}
-        print(json.dumps(res, ensure_ascii=False))
+        print(json.dumps(res))
     except Exception as e:
         print(json.dumps({"ok": False, "error": str(e)}))
+
 
 if __name__ == "__main__":
     asyncio.run(main())
