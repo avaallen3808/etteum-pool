@@ -1,15 +1,14 @@
 # Etteum Pool — avaallen3808 Fork
 
-**AI Proxy Pool for Multiple Providers** — Load balancing, auto-warmup, and credit tracking for Kiro, CodeBuddy, Codex, Canva, Qoder, **GitLab Duo**, **YouMind**, **Opencode Zen FREE (8)**, **Groq FREE (10)**, **OpenRouter FREE (14)**, **B.AI (10)** — total **138 models**.
+**AI Proxy Pool for Multiple Providers** — Load balancing, auto-warmup, and credit tracking for Kiro, CodeBuddy, Codex, Canva, Qoder, **GitLab Duo**, **YouMind**, **Opencode Zen FREE (8)**, **Groq FREE (10)**, **OpenRouter FREE (14)**, **B.AI (10)**, **Cerebras FREE (4)**, **Mistral FREE (5)**, **Nvidia NIM FREE (8)**, **UncloseAI FREE (4)** — total **159 models**.
 
 > 🔒 **Fork dari [priyo000/etteum-pool](https://github.com/priyo000/etteum-pool) — sekarang di [avaallen3808/etteum-pool](https://github.com/avaallen3808/etteum-pool).** Private fork dengan provider free tambahan.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 [![Bun](https://img.shields.io/badge/Bun-1.x-000000?logo=bun)](https://bun.sh)
 [![Python](https://img.shields.io/badge/Python-3.10+-3776AB?logo=python&logoColor=white)](https://python.org)
-[![Free Models](https://img.shields.io/badge/Free%20Models-42-brightgreen)](https://github.com/avaallen3808/etteum-pool/releases/tag/v1.1-free-providers)
-[![Providers](https://img.shields.io/badge/Providers-13-blue)](#)
-
+[![Free Models](https://img.shields.io/badge/Free%20Models-63-brightgreen)](https://github.com/avaallen3808/etteum-pool/releases/tag/v1.2-free-63)
+[![Providers](https://img.shields.io/badge/Providers-17-blue)](#)
 ---
 
 ## ⚡ Quick Start — One Command
