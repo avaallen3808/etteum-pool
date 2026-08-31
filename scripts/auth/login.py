@@ -8,6 +8,7 @@ import os
 
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
 
+
 from app.providers.kiro import KiroProviderAdapter
 from app.providers.kiro_pro import KiroProProviderAdapter
 from app.providers.codebuddy import CodeBuddyProviderAdapter
@@ -18,6 +19,7 @@ from app.providers.codex import CodexProviderAdapter
 from app.providers.qoder import QoderProviderAdapter
 from app.providers.gitlab_duo import GitLabDuoProviderAdapter
 from app.providers.deepseek_web import DeepSeekWebProviderAdapter
+from app.providers.base import NormalizedAccount
 from app.errors.codes import ErrorCode
 from app.errors.exceptions import BatcherError, RetryableBatcherError
 
