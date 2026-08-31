@@ -15,6 +15,10 @@ import { activateOpencodeKey } from "../proxy/providers/opencode";
 import { activateGroqKey } from "../proxy/providers/groq";
 import { activateOpenRouterKey } from "../proxy/providers/openrouter";
 import { activateBaiKey } from "../proxy/providers/bai";
+import { activateCerebrasKey } from "../proxy/providers/cerebras";
+import { activateMistralKey } from "../proxy/providers/mistral";
+import { activateNvidiaKey } from "../proxy/providers/nvidia";
+import { activateUncloseAiKey } from "../proxy/providers/uncloseai";
 
 export const accountsRouter = new Hono();
 
@@ -1189,7 +1193,7 @@ accountsRouter.get("/:id", async (c) => {
  */
 accountsRouter.post("/", async (c) => {
   const body = await c.req.json<{
-    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai";
+    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai";
     email?: string;
     password?: string;
     personalToken?: string;
@@ -1484,6 +1488,85 @@ accountsRouter.post("/", async (c) => {
       const msg = error instanceof Error ? error.message : String(error);
       return c.json({ error: `B.AI API key activation failed: ${msg}` }, 400);
     }
+  }
+
+  // ── Cerebras: API key flow ───────────────────────────────────────
+  if (body.provider === "cerebras" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateCerebrasKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts).where(eq(accounts.email, email)).then((rows) => rows.find((r) => r.provider === "cerebras"));
+      if (existing) {
+        await db.update(accounts).set({ password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, errorMessage: null, lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(accounts.id, existing.id));
+        pool.invalidate("cerebras" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "cerebras", status: "active" } });
+        return c.json({ id: existing.id, provider: "cerebras", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({ provider: "cerebras", email, password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, quotaLimit: -1, quotaRemaining: -1, lastLoginAt: new Date() }).returning();
+      const created = inserted[0]!; pool.invalidate("cerebras" as ProviderName); broadcast({ type: "account_created", data: { id: created.id, provider: "cerebras", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) { const msg = error instanceof Error ? error.message : String(error); return c.json({ error: `Cerebras API key activation failed: ${msg}` }, 400); }
+  }
+
+  // ── Mistral: API key flow ────────────────────────────────────────
+  if (body.provider === "mistral" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateMistralKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts).where(eq(accounts.email, email)).then((rows) => rows.find((r) => r.provider === "mistral"));
+      if (existing) {
+        await db.update(accounts).set({ password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, errorMessage: null, lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(accounts.id, existing.id));
+        pool.invalidate("mistral" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "mistral", status: "active" } });
+        return c.json({ id: existing.id, provider: "mistral", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({ provider: "mistral", email, password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, quotaLimit: -1, quotaRemaining: -1, lastLoginAt: new Date() }).returning();
+      const created = inserted[0]!; pool.invalidate("mistral" as ProviderName); broadcast({ type: "account_created", data: { id: created.id, provider: "mistral", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) { const msg = error instanceof Error ? error.message : String(error); return c.json({ error: `Mistral API key activation failed: ${msg}` }, 400); }
+  }
+
+  // ── Nvidia: API key flow (nvapi-...) ─────────────────────────────
+  if (body.provider === "nvidia" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateNvidiaKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts).where(eq(accounts.email, email)).then((rows) => rows.find((r) => r.provider === "nvidia"));
+      if (existing) {
+        await db.update(accounts).set({ password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, errorMessage: null, lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(accounts.id, existing.id));
+        pool.invalidate("nvidia" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "nvidia", status: "active" } });
+        return c.json({ id: existing.id, provider: "nvidia", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({ provider: "nvidia", email, password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, quotaLimit: -1, quotaRemaining: -1, lastLoginAt: new Date() }).returning();
+      const created = inserted[0]!; pool.invalidate("nvidia" as ProviderName); broadcast({ type: "account_created", data: { id: created.id, provider: "nvidia", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) { const msg = error instanceof Error ? error.message : String(error); return c.json({ error: `Nvidia API key activation failed: ${msg}` }, 400); }
+  }
+
+  // ── UncloseAI: API key flow (any string) ─────────────────────────
+  if (body.provider === "uncloseai" && (body.apiKey || body.password)) {
+    const raw = (body.apiKey || body.password || "").trim() || "x";
+    try {
+      const { email, metadata } = await activateUncloseAiKey(raw);
+      const encryptedKey = encrypt(raw);
+      const existing = await db.select().from(accounts).where(eq(accounts.email, email)).then((rows) => rows.find((r) => r.provider === "uncloseai"));
+      if (existing) {
+        await db.update(accounts).set({ password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, errorMessage: null, lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(accounts.id, existing.id));
+        pool.invalidate("uncloseai" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "uncloseai", status: "active" } });
+        return c.json({ id: existing.id, provider: "uncloseai", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({ provider: "uncloseai", email, password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, quotaLimit: -1, quotaRemaining: -1, lastLoginAt: new Date() }).returning();
+      const created = inserted[0]!; pool.invalidate("uncloseai" as ProviderName); broadcast({ type: "account_created", data: { id: created.id, provider: "uncloseai", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) { const msg = error instanceof Error ? error.message : String(error); return c.json({ error: `UncloseAI API key activation failed: ${msg}` }, 400); }
   }
 
   // ── CodeBuddy China: Bulk API key flow (ck_...) ─────────────────────

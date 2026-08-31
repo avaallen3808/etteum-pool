@@ -42,7 +42,7 @@ import {
   type ByokProvider,
 } from "@/lib/api";
 
-type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai";
+type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai";
 
 type ByokFormKey = {
   id?: number;
@@ -62,7 +62,7 @@ interface Account {
   quotaRemaining?: number;
 }
 
-const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai"];
+const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai"];
 
 function labelProvider(provider: string) {
   if (provider === "kiro-pro") return "Kiro Pro";
@@ -76,6 +76,10 @@ function labelProvider(provider: string) {
   if (provider === "groq") return "Groq Free";
   if (provider === "openrouter") return "OpenRouter Free";
   if (provider === "bai") return "B.AI";
+  if (provider === "cerebras") return "Cerebras Free";
+  if (provider === "mistral") return "Mistral Free";
+  if (provider === "nvidia") return "Nvidia NIM Free";
+  if (provider === "uncloseai") return "UncloseAI Free";
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
@@ -118,6 +122,14 @@ export default function Accounts() {
   const [openRouterBusy, setOpenRouterBusy] = useState(false);
   const [baiApiKey, setBaiApiKey] = useState("");
   const [baiBusy, setBaiBusy] = useState(false);
+  const [cerebrasApiKey, setCerebrasApiKey] = useState("");
+  const [cerebrasBusy, setCerebrasBusy] = useState(false);
+  const [mistralApiKey, setMistralApiKey] = useState("");
+  const [mistralBusy, setMistralBusy] = useState(false);
+  const [nvidiaApiKey, setNvidiaApiKey] = useState("");
+  const [nvidiaBusy, setNvidiaBusy] = useState(false);
+  const [uncloseaiApiKey, setUncloseaiApiKey] = useState("");
+  const [uncloseaiBusy, setUncloseaiBusy] = useState(false);
   const [codebuddyChinaApiKey, setCodebuddyChinaApiKey] = useState("");
   const [loginPendingDialog, setLoginPendingDialog] = useState(false);
   const [loginPendingConcurrency, setLoginPendingConcurrency] = useState(2);
@@ -514,6 +526,53 @@ export default function Accounts() {
     finally { setBaiBusy(false); }
   }
 
+  async function handleCerebrasApiKeyLogin() {
+    const apiKey = cerebrasApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste Cerebras API key")); return; }
+    setCerebrasBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "cerebras", apiKey }) });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `Cerebras key updated (${labelText})` : `Cerebras ${labelText} added successfully`);
+      setCerebrasApiKey(""); setAddDialogProvider(null); await load();
+    } catch (err) { showError(err); } finally { setCerebrasBusy(false); }
+  }
+
+  async function handleMistralApiKeyLogin() {
+    const apiKey = mistralApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste Mistral API key")); return; }
+    setMistralBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "mistral", apiKey }) });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `Mistral key updated (${labelText})` : `Mistral ${labelText} added successfully`);
+      setMistralApiKey(""); setAddDialogProvider(null); await load();
+    } catch (err) { showError(err); } finally { setMistralBusy(false); }
+  }
+
+  async function handleNvidiaApiKeyLogin() {
+    const apiKey = nvidiaApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste Nvidia API key")); return; }
+    setNvidiaBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "nvidia", apiKey }) });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `Nvidia key updated (${labelText})` : `Nvidia ${labelText} added successfully`);
+      setNvidiaApiKey(""); setAddDialogProvider(null); await load();
+    } catch (err) { showError(err); } finally { setNvidiaBusy(false); }
+  }
+
+  async function handleUncloseaiApiKeyLogin() {
+    const apiKey = (uncloseaiApiKey.trim() || "x");
+    setUncloseaiBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "uncloseai", apiKey }) });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `UncloseAI key updated (${labelText})` : `UncloseAI ${labelText} added successfully`);
+      setUncloseaiApiKey(""); setAddDialogProvider(null); await load();
+    } catch (err) { showError(err); } finally { setUncloseaiBusy(false); }
+  }
+
   async function handleCodebuddyChinaApiKeyLogin() {
     const apiKey = codebuddyChinaApiKey.trim();
     if (!apiKey) { showError(new Error("Paste CodeBuddy China API key")); return; }
@@ -769,6 +828,18 @@ export default function Accounts() {
       setAddMode("pat");
     }
     if (provider === "bai") {
+      setAddMode("pat");
+    }
+    if (provider === "cerebras") {
+      setAddMode("pat");
+    }
+    if (provider === "mistral") {
+      setAddMode("pat");
+    }
+    if (provider === "nvidia") {
+      setAddMode("pat");
+    }
+    if (provider === "uncloseai") {
       setAddMode("pat");
     }
     setAddDialogProvider(provider);
@@ -1580,7 +1651,15 @@ export default function Accounts() {
                 : addDialogProvider === "openrouter"
                 ? "Paste your OpenRouter API key (sk-or-...). Server will validate via GET /auth/key and store it encrypted. Free models (14): or-deepseek-v3-free, or-llama-3.3-70b-free, or-qwen3-235b-free, or-glm-4.5-free, or-hermes-3-405b-free, etc. Suffix :free = 0 cost, 20 RPM."
                 : addDialogProvider === "bai"
-                ? "Paste your B.AI API key (sk-...). Server will validate via GET /v1/models (https://api.b.ai) and store it encrypted. Unified API: /chat/completions, /responses, /messages — same key. Models: bai-gpt-5, bai-claude-sonnet-4.5, bai-gemini-3-flash, bai-deepseek-v3 — prefix bai- auto-stripped for upstream."
+                ? "Paste your B.AI API key (sk-...). Server will validate via GET /v1/models (https://api.b.ai) and store it encrypted. Unified API: /chat/completions, /responses, /messages — same key. Models: bai-gpt-5, bai-claude-sonnet-4.5, bai-gemini-3-flash, bai-deepseek-v3 — prefix bai- auto-stripped."
+                : addDialogProvider === "cerebras"
+                ? "Paste your Cerebras API key. Server will validate via GET /v1/models (https://api.cerebras.ai) and store it encrypted. Free: 1M tokens/day, 5 RPM, 30k TPM — models: cerebras-gpt-oss-120b, cerebras-glm-4.7."
+                : addDialogProvider === "mistral"
+                ? "Paste your Mistral API key. Server will validate via GET /v1/models (https://api.mistral.ai) and store it encrypted. Free Experiment: 1B tokens/mo — models: mistral-small, mistral-large, mistral-codestral, mistral-pixtral-12b."
+                : addDialogProvider === "nvidia"
+                ? "Paste your Nvidia NIM API key (nvapi-...). Server will validate via GET /v1/models (https://integrate.api.nvidia.com) and store it encrypted. Free: ~40 RPM — models: nvidia-llama-3.3-70b, nvidia-deepseek-r1, nvidia-qwen3-235b, nvidia-kimi-k2.5."
+                : addDialogProvider === "uncloseai"
+                ? "Paste any string as UncloseAI key (any non-empty = valid). Server treats as unlimited. Models: uncloseai-hermes-3-8b, uncloseai-llama-3.1-70b, uncloseai-qwen2-72b — also unc-* / any string works. Fallback endpoints: api.uncloseai.com / uncloseai.com/api."
                 : addDialogProvider === "codebuddy-china"
                 ? "Paste CodeBuddy China API keys (ck_...). Satu key per baris untuk bulk import."
                 : `Add account for ${addDialogProvider ? labelProvider(addDialogProvider) : "this provider"}.`}
@@ -1656,6 +1735,30 @@ export default function Accounts() {
               <button onClick={() => setAddMode("pat")}
                 className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
               >API Key (sk-...)</button>
+            </div>
+          ) : addDialogProvider === "cerebras" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (Cerebras)</button>
+            </div>
+          ) : addDialogProvider === "mistral" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (Mistral)</button>
+            </div>
+          ) : addDialogProvider === "nvidia" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (nvapi-...)</button>
+            </div>
+          ) : addDialogProvider === "uncloseai" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (any)</button>
             </div>
           ) : addDialogProvider === "codebuddy-china" ? (
             <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
@@ -1827,6 +1930,62 @@ export default function Accounts() {
                 <Button onClick={handleBaiApiKeyLogin} disabled={baiBusy}>
                   {baiBusy ? "Validating..." : "Add Account"}
                 </Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "cerebras" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Cerebras API Key</label>
+                <textarea value={cerebrasApiKey} onChange={(e) => setCerebrasApiKey(e.target.value)} className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none" placeholder="csk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" disabled={cerebrasBusy} />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">Paste Cerebras API key dari <a href="https://cloud.cerebras.ai/" target="_blank" rel="noreferrer" className="underline">cloud.cerebras.ai</a> → API Keys. Server validasi via <code>GET /v1/models</code> (<code>https://api.cerebras.ai/v1</code>) — Free 1M tokens/day, 5 RPM. Models: <code>cerebras-gpt-oss-120b</code>, <code>cerebras-glm-4.7</code> + alias <code>cerebras/</code>/<code>cb-</code>.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={cerebrasBusy}>Cancel</Button>
+                <Button onClick={handleCerebrasApiKeyLogin} disabled={cerebrasBusy}>{cerebrasBusy ? "Validating..." : "Add Account"}</Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "mistral" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Mistral API Key</label>
+                <textarea value={mistralApiKey} onChange={(e) => setMistralApiKey(e.target.value)} className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" disabled={mistralBusy} />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">Paste Mistral API key dari <a href="https://console.mistral.ai/api-keys" target="_blank" rel="noreferrer" className="underline">console.mistral.ai/api-keys</a> → Create Key. Server validasi via <code>GET /v1/models</code> — Free Experiment 1B tokens/mo. Models: <code>mistral-small</code>, <code>mistral-large</code>, <code>mistral-codestral</code>, <code>mistral-pixtral-12b</code>.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={mistralBusy}>Cancel</Button>
+                <Button onClick={handleMistralApiKeyLogin} disabled={mistralBusy}>{mistralBusy ? "Validating..." : "Add Account"}</Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "nvidia" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Nvidia NIM API Key</label>
+                <textarea value={nvidiaApiKey} onChange={(e) => setNvidiaApiKey(e.target.value)} className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none" placeholder="nvapi-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" disabled={nvidiaBusy} />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">Paste Nvidia API key dari <a href="https://build.nvidia.com" target="_blank" rel="noreferrer" className="underline">build.nvidia.com</a> → Get API Key. Server validasi via <code>GET /v1/models</code> (<code>https://integrate.api.nvidia.com/v1</code>) — Free ~40 RPM, 70+ model. Models: <code>nvidia-llama-3.3-70b</code>, <code>nvidia-deepseek-r1</code>, <code>nvidia-qwen3-235b</code>.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={nvidiaBusy}>Cancel</Button>
+                <Button onClick={handleNvidiaApiKeyLogin} disabled={nvidiaBusy}>{nvidiaBusy ? "Validating..." : "Add Account"}</Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "uncloseai" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">UncloseAI API Key (any)</label>
+                <textarea value={uncloseaiApiKey} onChange={(e) => setUncloseaiApiKey(e.target.value)} className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none" placeholder="any string, e.g. x atau sk-... (any non-empty = valid)" disabled={uncloseaiBusy} />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">UncloseAI accepts <b>any non-empty string</b> as key — paste any value (e.g. <code>x</code>). Server treats as unlimited. Models: <code>uncloseai-hermes-3-8b</code>, <code>uncloseai-llama-3.1-70b</code>, <code>uncloseai-qwen2-72b</code> + <code>unc-*</code> dynamic passthrough via <code>api.uncloseai.com/v1</code>.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={uncloseaiBusy}>Cancel</Button>
+                <Button onClick={handleUncloseaiApiKeyLogin} disabled={uncloseaiBusy}>{uncloseaiBusy ? "Validating..." : "Add Account"}</Button>
               </div>
             </div>
           )}
