@@ -42,7 +42,7 @@ import {
   type ByokProvider,
 } from "@/lib/api";
 
-type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai" | "chutes";
+type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai" | "chutes" | "gemini-web" | "deepseek-web" | "qwen-web" | "zai-web";
 
 type ByokFormKey = {
   id?: number;
@@ -62,7 +62,7 @@ interface Account {
   quotaRemaining?: number;
 }
 
-const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai", "chutes"];
+const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai", "chutes", "gemini-web", "deepseek-web", "qwen-web", "zai-web"];
 
 function labelProvider(provider: string) {
   if (provider === "kiro-pro") return "Kiro Pro";
@@ -81,6 +81,10 @@ function labelProvider(provider: string) {
   if (provider === "nvidia") return "Nvidia NIM Free";
   if (provider === "uncloseai") return "UncloseAI Free";
   if (provider === "chutes") return "Chutes Free";
+  if (provider === "gemini-web") return "Gemini Web";
+  if (provider === "deepseek-web") return "DeepSeek Web";
+  if (provider === "qwen-web") return "Qwen Web";
+  if (provider === "zai-web") return "Z.AI Web";
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
