@@ -8,7 +8,10 @@ import { QoderProvider } from "./qoder";
 import { ByokProvider } from "./byok";
 import { GitlabDuoProvider } from "./gitlab-duo";
 import { YouMindProvider } from "./youmind";
-
+import { OpencodeProvider } from "./opencode";
+import { GroqProvider } from "./groq";
+import { OpenRouterProvider } from "./openrouter";
+import { BaiProvider } from "./bai";
 /**
  * Single source of truth for the provider set.
  *
@@ -34,16 +37,23 @@ const qoder = new QoderProvider();
 const byok = new ByokProvider();
 const gitlabDuo = new GitlabDuoProvider();
 const youmind = new YouMindProvider();
+const opencode = new OpencodeProvider();
+const groq = new GroqProvider();
+const openrouter = new OpenRouterProvider();
+const bai = new BaiProvider();
 
-// Priority order. canva/qoder/codex/kiro-pro/youmind have unique prefixes; codex
+// Priority order. canva/qoder/codex/kiro-pro/youmind/opencode/groq/openrouter/bai have unique prefixes; codex
 // is listed before codebuddy so the literal "gpt-5-codex" resolves to codex
 // while codebuddy keeps its own "gpt-5*"/"gpt-5.x-codex" models. byok checks
 // dynamic prefixes from DB accounts. kiro is the fallback. gitlab-duo owns
 // `claude_(haiku|sonnet|opus)_<digit>...` underscore-style identifiers — no
 // overlap with any other provider, so position is not load-bearing. youmind
-// owns the `ym-*` prefix exclusively — also position-independent, but slotted
-// alongside the other prefix-based providers for readability.
-const PROVIDER_ORDER = [gitlabDuo, canva, qoder, codex, kiroPro, youmind, byok, codebuddyChina, codebuddy, kiro] as const;
+// owns the `ym-*` prefix exclusively; opencode owns the 8 free model ids
+// (`big-pickle`, `*-free`) plus `opencode/` and `oc-` aliases; groq owns
+// `groq-*`/`gq-*` and openrouter owns `or-*`/` :free` suffix; bai owns `bai-*` — also
+// position-independent, but slotted alongside the other prefix-based providers
+// for readability.
+const PROVIDER_ORDER = [gitlabDuo, canva, qoder, codex, kiroPro, youmind, opencode, groq, openrouter, bai, byok, codebuddyChina, codebuddy, kiro] as const;
 
 export const providers = {
   kiro,
@@ -53,11 +63,14 @@ export const providers = {
   canva,
   codex,
   qoder,
-  byok,
   "gitlab-duo": gitlabDuo,
   youmind,
+  opencode,
+  groq,
+  openrouter,
+  bai,
+  byok,
 } as const;
-
 export type ProviderName = keyof typeof providers;
 
 /** Map a model id to the provider that handles it. */

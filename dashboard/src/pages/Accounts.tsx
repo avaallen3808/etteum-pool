@@ -42,7 +42,7 @@ import {
   type ByokProvider,
 } from "@/lib/api";
 
-type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind";
+type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai";
 
 type ByokFormKey = {
   id?: number;
@@ -62,7 +62,7 @@ interface Account {
   quotaRemaining?: number;
 }
 
-const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind"];
+const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai"];
 
 function labelProvider(provider: string) {
   if (provider === "kiro-pro") return "Kiro Pro";
@@ -72,6 +72,10 @@ function labelProvider(provider: string) {
   if (provider === "qoder") return "Qoder";
   if (provider === "gitlab-duo") return "GitLab Duo";
   if (provider === "youmind") return "YouMind";
+  if (provider === "opencode") return "Opencode Free";
+  if (provider === "groq") return "Groq Free";
+  if (provider === "openrouter") return "OpenRouter Free";
+  if (provider === "bai") return "B.AI";
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
@@ -106,9 +110,15 @@ export default function Accounts() {
   const [gitlabBusy, setGitlabBusy] = useState(false);
   const [youmindApiKey, setYoumindApiKey] = useState("");
   const [youmindBusy, setYoumindBusy] = useState(false);
+  const [opencodeApiKey, setOpencodeApiKey] = useState("");
+  const [opencodeBusy, setOpencodeBusy] = useState(false);
+  const [groqApiKey, setGroqApiKey] = useState("");
+  const [groqBusy, setGroqBusy] = useState(false);
+  const [openRouterApiKey, setOpenRouterApiKey] = useState("");
+  const [openRouterBusy, setOpenRouterBusy] = useState(false);
+  const [baiApiKey, setBaiApiKey] = useState("");
+  const [baiBusy, setBaiBusy] = useState(false);
   const [codebuddyChinaApiKey, setCodebuddyChinaApiKey] = useState("");
-  const [codebuddyChinaBulkApiKeys, setCodebuddyChinaBulkApiKeys] = useState("");
-  const [codebuddyChinaBusy, setCodebuddyChinaBusy] = useState(false);
   const [loginPendingDialog, setLoginPendingDialog] = useState(false);
   const [loginPendingConcurrency, setLoginPendingConcurrency] = useState(2);
   const [byokProviders, setByokProviders] = useState<ByokProvider[]>([]);
@@ -419,6 +429,91 @@ export default function Accounts() {
     finally { setYoumindBusy(false); }
   }
 
+  async function handleOpencodeApiKeyLogin() {
+    const apiKey = opencodeApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste Opencode API key")); return; }
+    setOpencodeBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", {
+        method: "POST",
+        body: JSON.stringify({
+          provider: "opencode",
+          apiKey,
+        }),
+      });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated
+        ? `Opencode key updated (${labelText})`
+        : `Opencode ${labelText} added successfully`);
+      setOpencodeApiKey("");
+      setAddDialogProvider(null);
+      await load();
+    } catch (err) { showError(err); }
+    finally { setOpencodeBusy(false); }
+  }
+
+  async function handleGroqApiKeyLogin() {
+    const apiKey = groqApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste Groq API key")); return; }
+    if (!apiKey.startsWith("gsk_")) {
+      showError(new Error("Groq API key must start with gsk_"));
+      return;
+    }
+    setGroqBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", {
+        method: "POST",
+        body: JSON.stringify({ provider: "groq", apiKey }),
+      });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `Groq key updated (${labelText})` : `Groq ${labelText} added successfully`);
+      setGroqApiKey("");
+      setAddDialogProvider(null);
+      await load();
+    } catch (err) { showError(err); }
+    finally { setGroqBusy(false); }
+  }
+
+  async function handleOpenRouterApiKeyLogin() {
+    const apiKey = openRouterApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste OpenRouter API key")); return; }
+    if (!apiKey.startsWith("sk-or-")) {
+      showError(new Error("OpenRouter API key must start with sk-or-"));
+      return;
+    }
+    setOpenRouterBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", {
+        method: "POST",
+        body: JSON.stringify({ provider: "openrouter", apiKey }),
+      });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `OpenRouter key updated (${labelText})` : `OpenRouter ${labelText} added successfully`);
+      setOpenRouterApiKey("");
+      setAddDialogProvider(null);
+      await load();
+    } catch (err) { showError(err); }
+    finally { setOpenRouterBusy(false); }
+  }
+
+  async function handleBaiApiKeyLogin() {
+    const apiKey = baiApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste B.AI API key")); return; }
+    setBaiBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", {
+        method: "POST",
+        body: JSON.stringify({ provider: "bai", apiKey }),
+      });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `B.AI key updated (${labelText})` : `B.AI ${labelText} added successfully`);
+      setBaiApiKey("");
+      setAddDialogProvider(null);
+      await load();
+    } catch (err) { showError(err); }
+    finally { setBaiBusy(false); }
+  }
+
   async function handleCodebuddyChinaApiKeyLogin() {
     const apiKey = codebuddyChinaApiKey.trim();
     if (!apiKey) { showError(new Error("Paste CodeBuddy China API key")); return; }
@@ -662,6 +757,18 @@ export default function Accounts() {
       setAddMode("pat");
     }
     if (provider === "youmind") {
+      setAddMode("pat");
+    }
+    if (provider === "opencode") {
+      setAddMode("pat");
+    }
+    if (provider === "groq") {
+      setAddMode("pat");
+    }
+    if (provider === "openrouter") {
+      setAddMode("pat");
+    }
+    if (provider === "bai") {
       setAddMode("pat");
     }
     setAddDialogProvider(provider);
@@ -1466,6 +1573,14 @@ export default function Accounts() {
                 ? "Add via Personal Access Token, single Gmail (bot login), or bulk email|password."
                 : addDialogProvider === "youmind"
                 ? "Paste your YouMind API key (sk-ym-...). Server will validate against the OpenAPI relay and store it encrypted."
+                : addDialogProvider === "opencode"
+                ? "Paste your Opencode Zen API key. Server will validate via GET /zen/v1/models and store it encrypted. Free models (8): big-pickle, deepseek-v4-flash-free, mimo-v2.5-free, ling-3.0-flash-fin-free, nemotron-3-ultra-free, nemotron-3.5-lightning-free, laguna-s-2.1-free, muse-spark-1.2-contributor-free."
+                : addDialogProvider === "groq"
+                ? "Paste your Groq API key (gsk_...). Server will validate via GET /openai/v1/models and store it encrypted. Free tier: 30 RPM, 14.4k req/day, 30k TPM. Models: groq-llama-3.1-8b-instant, groq-llama-3.3-70b-versatile, groq-mixtral-8x7b, groq-gemma2-9b-it, groq-qwen3-32b, groq-deepseek-r1-distill."
+                : addDialogProvider === "openrouter"
+                ? "Paste your OpenRouter API key (sk-or-...). Server will validate via GET /auth/key and store it encrypted. Free models (14): or-deepseek-v3-free, or-llama-3.3-70b-free, or-qwen3-235b-free, or-glm-4.5-free, or-hermes-3-405b-free, etc. Suffix :free = 0 cost, 20 RPM."
+                : addDialogProvider === "bai"
+                ? "Paste your B.AI API key (sk-...). Server will validate via GET /v1/models (https://api.b.ai) and store it encrypted. Unified API: /chat/completions, /responses, /messages — same key. Models: bai-gpt-5, bai-claude-sonnet-4.5, bai-gemini-3-flash, bai-deepseek-v3 — prefix bai- auto-stripped for upstream."
                 : addDialogProvider === "codebuddy-china"
                 ? "Paste CodeBuddy China API keys (ck_...). Satu key per baris untuk bulk import."
                 : `Add account for ${addDialogProvider ? labelProvider(addDialogProvider) : "this provider"}.`}
@@ -1517,6 +1632,30 @@ export default function Accounts() {
               <button onClick={() => setAddMode("pat")}
                 className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
               >API Key (sk-ym-...)</button>
+            </div>
+          ) : addDialogProvider === "opencode" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (Opencode Zen)</button>
+            </div>
+          ) : addDialogProvider === "groq" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (gsk_...)</button>
+            </div>
+          ) : addDialogProvider === "openrouter" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (sk-or-...)</button>
+            </div>
+          ) : addDialogProvider === "bai" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (sk-...)</button>
             </div>
           ) : addDialogProvider === "codebuddy-china" ? (
             <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
@@ -1582,10 +1721,119 @@ export default function Accounts() {
             </div>
           )}
 
+          {addMode === "pat" && addDialogProvider === "opencode" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Opencode Zen API Key</label>
+                <textarea
+                  value={opencodeApiKey}
+                  onChange={(e) => setOpencodeApiKey(e.target.value)}
+                  className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none"
+                  placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx atau opencode api key"
+                  disabled={opencodeBusy}
+                />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Paste your Opencode Zen API key dari{" "}
+                  <a href="https://opencode.ai/auth" target="_blank" rel="noreferrer" className="underline">opencode.ai/auth</a>{" "}
+                  → Create API Key. Server validasi via <code>GET /zen/v1/models</code> dan simpan key terenkripsi.
+                  Free models (8): <code>big-pickle</code>, <code>deepseek-v4-flash-free</code>, <code>mimo-v2.5-free</code>, <code>ling-3.0-flash-fin-free</code>, <code>nemotron-3-ultra-free</code>, <code>nemotron-3.5-lightning-free</code>, <code>laguna-s-2.1-free</code>, <code>muse-spark-1.2-contributor-free</code>.
+                  Prefix alias: <code>opencode/{"<id>"}</code> atau <code>oc-{"<id>"}</code> juga diterima.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={opencodeBusy}>Cancel</Button>
+                <Button onClick={handleOpencodeApiKeyLogin} disabled={opencodeBusy}>
+                  {opencodeBusy ? "Validating..." : "Add Account"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "groq" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Groq API Key</label>
+                <textarea
+                  value={groqApiKey}
+                  onChange={(e) => setGroqApiKey(e.target.value)}
+                  className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none"
+                  placeholder="gsk_xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  disabled={groqBusy}
+                />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Paste your Groq API key dari{" "}
+                  <a href="https://console.groq.com/keys" target="_blank" rel="noreferrer" className="underline">console.groq.com/keys</a>{" "}
+                  → Create API Key. Server validasi via <code>GET /openai/v1/models</code> dan simpan key terenkripsi.
+                  Free tier (30 RPM/14.4k day): <code>groq-llama-3.1-8b-instant</code>, <code>groq-llama-3.3-70b-versatile</code>, <code>groq-mixtral-8x7b-32768</code>, <code>groq-gemma2-9b-it</code>, <code>groq-qwen3-32b</code>, <code>groq-deepseek-r1-distill-llama-70b</code> + alias <code>groq/{"<id>"}</code> / <code>gq-{"<id>"}</code>.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={groqBusy}>Cancel</Button>
+                <Button onClick={handleGroqApiKeyLogin} disabled={groqBusy}>
+                  {groqBusy ? "Validating..." : "Add Account"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "openrouter" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">OpenRouter API Key</label>
+                <textarea
+                  value={openRouterApiKey}
+                  onChange={(e) => setOpenRouterApiKey(e.target.value)}
+                  className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none"
+                  placeholder="sk-or-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  disabled={openRouterBusy}
+                />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Paste your OpenRouter API key dari{" "}
+                  <a href="https://openrouter.ai/keys" target="_blank" rel="noreferrer" className="underline">openrouter.ai/keys</a>{" "}
+                  → Create Key. Server validasi via <code>GET /auth/key</code> dan simpan key terenkripsi.
+                  Free models (14): <code>or-deepseek-v3-free</code>, <code>or-llama-3.3-70b-free</code>, <code>or-qwen3-235b-free</code>, <code>or-glm-4.5-free</code>, <code>or-hermes-3-405b-free</code>, <code>or-maverick-free</code> + <code>:free</code> suffix langsung juga bisa.
+                  Prefix alias: <code>openrouter/{"<id>"}</code> / <code>or-{"<id>"}</code>.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={openRouterBusy}>Cancel</Button>
+                <Button onClick={handleOpenRouterApiKeyLogin} disabled={openRouterBusy}>
+                  {openRouterBusy ? "Validating..." : "Add Account"}
+                </Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "bai" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">B.AI API Key</label>
+                <textarea
+                  value={baiApiKey}
+                  onChange={(e) => setBaiApiKey(e.target.value)}
+                  className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none"
+                  placeholder="sk-xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx"
+                  disabled={baiBusy}
+                />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Paste your B.AI API key dari{" "}
+                  <a href="https://docs.b.ai/llmservice/api/" target="_blank" rel="noreferrer" className="underline">docs.b.ai/llmservice/api</a>{" "}
+                  → Get API Key. Server validasi via <code>GET /v1/models</code> (<code>https://api.b.ai/v1</code>) dan simpan key terenkripsi.
+                  Unified API: <code>/chat/completions</code> / <code>/responses</code> / <code>/messages</code> — sama key. Models: <code>bai-gpt-5</code>, <code>bai-claude-sonnet-4.5</code>, <code>bai-gemini-3-flash</code>, <code>bai-deepseek-v3</code> — prefix <code>bai-</code> auto di-strip. Dynamic <code>bai-{"<any-model>"}</code> juga bisa.
+                </p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={baiBusy}>Cancel</Button>
+                <Button onClick={handleBaiApiKeyLogin} disabled={baiBusy}>
+                  {baiBusy ? "Validating..." : "Add Account"}
+                </Button>
+              </div>
+            </div>
+          )}
+
           {addMode === "pat" && addDialogProvider === "gitlab-duo" && (
             <div className="space-y-4">
               <div>
-                <label className="text-sm text-[var(--foreground)]">GitLab Base URL</label>
                 <Input
                   value={gitlabBaseUrl}
                   onChange={(e) => setGitlabBaseUrl(e.target.value)}

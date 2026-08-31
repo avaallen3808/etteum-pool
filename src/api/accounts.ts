@@ -11,6 +11,10 @@ import { warmupAccount } from "../auth/warmup-runner";
 import { pool, type ProviderName } from "../proxy/pool";
 import { activateQoderPat } from "../proxy/providers/qoder";
 import { activateYouMindKey } from "../proxy/providers/youmind";
+import { activateOpencodeKey } from "../proxy/providers/opencode";
+import { activateGroqKey } from "../proxy/providers/groq";
+import { activateOpenRouterKey } from "../proxy/providers/openrouter";
+import { activateBaiKey } from "../proxy/providers/bai";
 
 export const accountsRouter = new Hono();
 
@@ -1185,7 +1189,7 @@ accountsRouter.get("/:id", async (c) => {
  */
 accountsRouter.post("/", async (c) => {
   const body = await c.req.json<{
-    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind";
+    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai";
     email?: string;
     password?: string;
     personalToken?: string;
@@ -1297,6 +1301,188 @@ accountsRouter.post("/", async (c) => {
     } catch (error) {
       const msg = error instanceof Error ? error.message : String(error);
       return c.json({ error: `YouMind API key activation failed: ${msg}` }, 400);
+    }
+  }
+
+  // ── Opencode Zen Free: API key paste flow (opencode API key) ───────
+  // Same pattern as YouMind: validate against /v1/models, derive stable
+  // email from key hash, upsert by (provider,email).
+  if (body.provider === "opencode" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateOpencodeKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts)
+        .where(eq(accounts.email, email))
+        .then((rows) => rows.find((r) => r.provider === "opencode"));
+      if (existing) {
+        await db.update(accounts).set({
+          password: encryptedKey,
+          status: "active",
+          tokens: null,
+          metadata: metadata as unknown,
+          errorMessage: null,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, existing.id));
+        pool.invalidate("opencode" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "opencode", status: "active" } });
+        return c.json({ id: existing.id, provider: "opencode", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({
+        provider: "opencode",
+        email,
+        password: encryptedKey,
+        status: "active",
+        tokens: null,
+        metadata: metadata as unknown,
+        quotaLimit: -1,
+        quotaRemaining: -1,
+        lastLoginAt: new Date(),
+      }).returning();
+      const created = inserted[0]!;
+      pool.invalidate("opencode" as ProviderName);
+      broadcast({ type: "account_created", data: { id: created.id, provider: "opencode", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `Opencode API key activation failed: ${msg}` }, 400);
+    }
+  }
+
+  // ── Groq: API key flow (gsk_...) ───────────────────────────────────
+  if (body.provider === "groq" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateGroqKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts)
+        .where(eq(accounts.email, email))
+        .then((rows) => rows.find((r) => r.provider === "groq"));
+      if (existing) {
+        await db.update(accounts).set({
+          password: encryptedKey,
+          status: "active",
+          tokens: null,
+          metadata: metadata as unknown,
+          errorMessage: null,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, existing.id));
+        pool.invalidate("groq" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "groq", status: "active" } });
+        return c.json({ id: existing.id, provider: "groq", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({
+        provider: "groq",
+        email,
+        password: encryptedKey,
+        status: "active",
+        tokens: null,
+        metadata: metadata as unknown,
+        quotaLimit: -1,
+        quotaRemaining: -1,
+        lastLoginAt: new Date(),
+      }).returning();
+      const created = inserted[0]!;
+      pool.invalidate("groq" as ProviderName);
+      broadcast({ type: "account_created", data: { id: created.id, provider: "groq", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `Groq API key activation failed: ${msg}` }, 400);
+    }
+  }
+
+  // ── OpenRouter: API key flow (sk-or-...) ───────────────────────────
+  if (body.provider === "openrouter" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateOpenRouterKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts)
+        .where(eq(accounts.email, email))
+        .then((rows) => rows.find((r) => r.provider === "openrouter"));
+      if (existing) {
+        await db.update(accounts).set({
+          password: encryptedKey,
+          status: "active",
+          tokens: null,
+          metadata: metadata as unknown,
+          errorMessage: null,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, existing.id));
+        pool.invalidate("openrouter" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "openrouter", status: "active" } });
+        return c.json({ id: existing.id, provider: "openrouter", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({
+        provider: "openrouter",
+        email,
+        password: encryptedKey,
+        status: "active",
+        tokens: null,
+        metadata: metadata as unknown,
+        quotaLimit: -1,
+        quotaRemaining: -1,
+        lastLoginAt: new Date(),
+      }).returning();
+      const created = inserted[0]!;
+      pool.invalidate("openrouter" as ProviderName);
+      broadcast({ type: "account_created", data: { id: created.id, provider: "openrouter", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `OpenRouter API key activation failed: ${msg}` }, 400);
+    }
+  }
+
+  // ── B.AI: API key flow (sk-...) ────────────────────────────────────
+  if (body.provider === "bai" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateBaiKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts)
+        .where(eq(accounts.email, email))
+        .then((rows) => rows.find((r) => r.provider === "bai"));
+      if (existing) {
+        await db.update(accounts).set({
+          password: encryptedKey,
+          status: "active",
+          tokens: null,
+          metadata: metadata as unknown,
+          errorMessage: null,
+          lastLoginAt: new Date(),
+          updatedAt: new Date(),
+        }).where(eq(accounts.id, existing.id));
+        pool.invalidate("bai" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "bai", status: "active" } });
+        return c.json({ id: existing.id, provider: "bai", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({
+        provider: "bai",
+        email,
+        password: encryptedKey,
+        status: "active",
+        tokens: null,
+        metadata: metadata as unknown,
+        quotaLimit: -1,
+        quotaRemaining: -1,
+        lastLoginAt: new Date(),
+      }).returning();
+      const created = inserted[0]!;
+      pool.invalidate("bai" as ProviderName);
+      broadcast({ type: "account_created", data: { id: created.id, provider: "bai", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) {
+      const msg = error instanceof Error ? error.message : String(error);
+      return c.json({ error: `B.AI API key activation failed: ${msg}` }, 400);
     }
   }
 
