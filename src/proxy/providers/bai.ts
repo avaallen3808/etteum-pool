@@ -226,6 +226,7 @@ export class BaiProvider extends BaseProvider {
     error?: string;
   }> {
     const apiKey = this.getApiKey(account);
+
     if (!apiKey) return { success: false, error: "No API key" };
     try {
       const resp = await this.fetchWithTimeout(MODELS_URL, {
@@ -237,7 +238,7 @@ export class BaiProvider extends BaseProvider {
         const text = await resp.text().catch(() => "");
         return { success: false, error: `B.AI quota probe HTTP ${resp.status}: ${text.slice(0, 160)}` };
       }
-      
+
       // Opportunistically refresh the auto-discovered model cache from the
       // /models response we already fetched. Never fails the quota probe.
       try {
