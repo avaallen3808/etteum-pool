@@ -19,6 +19,7 @@ import { activateCerebrasKey } from "../proxy/providers/cerebras";
 import { activateMistralKey } from "../proxy/providers/mistral";
 import { activateNvidiaKey } from "../proxy/providers/nvidia";
 import { activateUncloseAiKey } from "../proxy/providers/uncloseai";
+import { activateChutesKey } from "../proxy/providers/chutes";
 
 export const accountsRouter = new Hono();
 
@@ -1193,7 +1194,7 @@ accountsRouter.get("/:id", async (c) => {
  */
 accountsRouter.post("/", async (c) => {
   const body = await c.req.json<{
-    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai";
+    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai" | "chutes";
     email?: string;
     password?: string;
     personalToken?: string;
@@ -1567,6 +1568,26 @@ accountsRouter.post("/", async (c) => {
       const created = inserted[0]!; pool.invalidate("uncloseai" as ProviderName); broadcast({ type: "account_created", data: { id: created.id, provider: "uncloseai", email } });
       return c.json({ ...created, password: "***", tokens: null }, 201);
     } catch (error) { const msg = error instanceof Error ? error.message : String(error); return c.json({ error: `UncloseAI API key activation failed: ${msg}` }, 400); }
+  }
+
+  // ── Chutes: API key flow ───────────────────────────────────────
+  if (body.provider === "chutes" && body.apiKey) {
+    const trimmed = body.apiKey.trim();
+    if (!trimmed) return c.json({ error: "apiKey is empty" }, 400);
+    try {
+      const { email, metadata } = await activateChutesKey(trimmed);
+      const encryptedKey = encrypt(trimmed);
+      const existing = await db.select().from(accounts).where(eq(accounts.email, email)).then((rows) => rows.find((r) => r.provider === "chutes"));
+      if (existing) {
+        await db.update(accounts).set({ password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, errorMessage: null, lastLoginAt: new Date(), updatedAt: new Date() }).where(eq(accounts.id, existing.id));
+        pool.invalidate("chutes" as ProviderName);
+        broadcast({ type: "account_updated", data: { id: existing.id, provider: "chutes", status: "active" } });
+        return c.json({ id: existing.id, provider: "chutes", email, status: "active", updated: true }, 200);
+      }
+      const inserted = await db.insert(accounts).values({ provider: "chutes", email, password: encryptedKey, status: "active", tokens: null, metadata: metadata as unknown, quotaLimit: -1, quotaRemaining: -1, lastLoginAt: new Date() }).returning();
+      const created = inserted[0]!; pool.invalidate("chutes" as ProviderName); broadcast({ type: "account_created", data: { id: created.id, provider: "chutes", email } });
+      return c.json({ ...created, password: "***", tokens: null }, 201);
+    } catch (error) { const msg = error instanceof Error ? error.message : String(error); return c.json({ error: `Chutes API key activation failed: ${msg}` }, 400); }
   }
 
   // ── CodeBuddy China: Bulk API key flow (ck_...) ─────────────────────

@@ -16,6 +16,7 @@ import { CerebrasProvider } from "./cerebras";
 import { MistralProvider } from "./mistral";
 import { NvidiaProvider } from "./nvidia";
 import { UncloseAiProvider } from "./uncloseai";
+import { ChutesProvider } from "./chutes";
 /**
  * Single source of truth for the provider set.
  *
@@ -30,7 +31,6 @@ import { UncloseAiProvider } from "./uncloseai";
  */
 // kiro and kiro-pro are two variants of the SAME provider class — same upstream
 // (AWS CodeWhisperer), different model catalog + account pool. They keep
-// distinct provider names so DB/bot/dashboard treat them separately.
 const kiro = new KiroProvider({ variant: "standard" });
 const kiroPro = new KiroProvider({ variant: "pro" });
 const codebuddy = new CodeBuddyProvider();
@@ -49,8 +49,9 @@ const cerebras = new CerebrasProvider();
 const mistral = new MistralProvider();
 const nvidia = new NvidiaProvider();
 const uncloseai = new UncloseAiProvider();
+const chutes = new ChutesProvider();
 
-// Priority order. canva/qoder/codex/kiro-pro/youmind/opencode/groq/openrouter/bai/cerebras/mistral/nvidia/uncloseai have unique prefixes; codex
+// Priority order. canva/qoder/codex/kiro-pro/youmind/opencode/groq/openrouter/bai/cerebras/mistral/nvidia/uncloseai/chutes have unique prefixes; codex
 // is listed before codebuddy so the literal "gpt-5-codex" resolves to codex
 // while codebuddy keeps its own "gpt-5*"/"gpt-5.x-codex" models. byok checks
 // dynamic prefixes from DB accounts. kiro is the fallback. gitlab-duo owns
@@ -60,8 +61,7 @@ const uncloseai = new UncloseAiProvider();
 // (`big-pickle`, `*-free`) plus `opencode/` and `oc-` aliases; groq owns
 // `groq-*`/`gq-*` and openrouter owns `or-*`/` :free` suffix; bai owns `bai-*`; cerebras `cerebras-*`/`cb-*`; mistral `mistral-*`; nvidia `nvidia-*`/`nv-*`; uncloseai `unc-*` — also
 // position-independent, but slotted alongside the other prefix-based providers
-// for readability.
-const PROVIDER_ORDER = [gitlabDuo, canva, qoder, codex, kiroPro, youmind, opencode, groq, openrouter, bai, cerebras, mistral, nvidia, uncloseai, byok, codebuddyChina, codebuddy, kiro] as const;
+const PROVIDER_ORDER = [gitlabDuo, canva, qoder, codex, kiroPro, youmind, opencode, groq, openrouter, bai, cerebras, mistral, nvidia, uncloseai, chutes, byok, codebuddyChina, codebuddy, kiro] as const;
 
 export const providers = {
   kiro,
@@ -81,6 +81,7 @@ export const providers = {
   mistral,
   nvidia,
   uncloseai,
+  chutes,
   byok,
 } as const;
 export type ProviderName = keyof typeof providers;

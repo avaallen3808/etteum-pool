@@ -42,7 +42,7 @@ import {
   type ByokProvider,
 } from "@/lib/api";
 
-type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai";
+type Provider = "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai" | "chutes";
 
 type ByokFormKey = {
   id?: number;
@@ -62,7 +62,7 @@ interface Account {
   quotaRemaining?: number;
 }
 
-const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai"];
+const providers: Provider[] = ["kiro", "kiro-pro", "codebuddy", "codebuddy-china", "canva", "codex", "qoder", "gitlab-duo", "youmind", "opencode", "groq", "openrouter", "bai", "cerebras", "mistral", "nvidia", "uncloseai", "chutes"];
 
 function labelProvider(provider: string) {
   if (provider === "kiro-pro") return "Kiro Pro";
@@ -80,6 +80,7 @@ function labelProvider(provider: string) {
   if (provider === "mistral") return "Mistral Free";
   if (provider === "nvidia") return "Nvidia NIM Free";
   if (provider === "uncloseai") return "UncloseAI Free";
+  if (provider === "chutes") return "Chutes Free";
   return provider.charAt(0).toUpperCase() + provider.slice(1);
 }
 
@@ -130,8 +131,9 @@ export default function Accounts() {
   const [nvidiaBusy, setNvidiaBusy] = useState(false);
   const [uncloseaiApiKey, setUncloseaiApiKey] = useState("");
   const [uncloseaiBusy, setUncloseaiBusy] = useState(false);
+  const [chutesApiKey, setChutesApiKey] = useState("");
+  const [chutesBusy, setChutesBusy] = useState(false);
   const [codebuddyChinaApiKey, setCodebuddyChinaApiKey] = useState("");
-  const [loginPendingDialog, setLoginPendingDialog] = useState(false);
   const [loginPendingConcurrency, setLoginPendingConcurrency] = useState(2);
   const [byokProviders, setByokProviders] = useState<ByokProvider[]>([]);
   const [byokDialogOpen, setByokDialogOpen] = useState(false);
@@ -573,6 +575,18 @@ export default function Accounts() {
     } catch (err) { showError(err); } finally { setUncloseaiBusy(false); }
   }
 
+  async function handleChutesApiKeyLogin() {
+    const apiKey = chutesApiKey.trim();
+    if (!apiKey) { showError(new Error("Paste Chutes API key")); return; }
+    setChutesBusy(true);
+    try {
+      const res = await fetchApi<any>("/api/accounts", { method: "POST", body: JSON.stringify({ provider: "chutes", apiKey }) });
+      const labelText = res?.email || "account";
+      showSuccess(res?.updated ? `Chutes key updated (${labelText})` : `Chutes ${labelText} added successfully`);
+      setChutesApiKey(""); setAddDialogProvider(null); await load();
+    } catch (err) { showError(err); } finally { setChutesBusy(false); }
+  }
+
   async function handleCodebuddyChinaApiKeyLogin() {
     const apiKey = codebuddyChinaApiKey.trim();
     if (!apiKey) { showError(new Error("Paste CodeBuddy China API key")); return; }
@@ -793,20 +807,6 @@ export default function Accounts() {
     await safeCopyText(codexOauthAuthUrl, "Auth URL copied");
   }
 
-  function handleCodexOAuthOpenManual() {
-    if (!codexOauthAuthUrl) return;
-    window.open(codexOauthAuthUrl, "_blank", "noopener,noreferrer");
-  }
-
-  async function handleCodexOAuthPasteCallback() {
-    try {
-      const text = await navigator.clipboard.readText();
-      setCodexOauthCallbackUrl(text);
-    } catch (err) {
-      showError(err);
-    }
-  }
-
   function handleOpenAddDialog(provider: Provider) {
     resetCodexOAuthFlow();
     if (provider === "codex") {
@@ -840,6 +840,9 @@ export default function Accounts() {
       setAddMode("pat");
     }
     if (provider === "uncloseai") {
+      setAddMode("pat");
+    }
+    if (provider === "chutes") {
       setAddMode("pat");
     }
     setAddDialogProvider(provider);
@@ -1660,6 +1663,8 @@ export default function Accounts() {
                 ? "Paste your Nvidia NIM API key (nvapi-...). Server will validate via GET /v1/models (https://integrate.api.nvidia.com) and store it encrypted. Free: ~40 RPM — models: nvidia-llama-3.3-70b, nvidia-deepseek-r1, nvidia-qwen3-235b, nvidia-kimi-k2.5."
                 : addDialogProvider === "uncloseai"
                 ? "Paste any string as UncloseAI key (any non-empty = valid). Server treats as unlimited. Models: uncloseai-hermes-3-8b, uncloseai-llama-3.1-70b, uncloseai-qwen2-72b — also unc-* / any string works. Fallback endpoints: api.uncloseai.com / uncloseai.com/api."
+                : addDialogProvider === "chutes"
+                ? "Paste your Chutes API key. Server will validate via GET /v1/models (https://llm.chutes.ai/v1) and store it encrypted. Models: chutes-deepseek-v3, chutes-qwen3-235b, chutes-kimi-k2, chutes-glm-4.7 — prefix chutes-* / ch-* auto-stripped, fallback api.chutes.ai."
                 : addDialogProvider === "codebuddy-china"
                 ? "Paste CodeBuddy China API keys (ck_...). Satu key per baris untuk bulk import."
                 : `Add account for ${addDialogProvider ? labelProvider(addDialogProvider) : "this provider"}.`}
@@ -1759,6 +1764,12 @@ export default function Accounts() {
               <button onClick={() => setAddMode("pat")}
                 className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
               >API Key (any)</button>
+            </div>
+          ) : addDialogProvider === "chutes" ? (
+            <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
+              <button onClick={() => setAddMode("pat")}
+                className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "pat" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+              >API Key (Chutes)</button>
             </div>
           ) : addDialogProvider === "codebuddy-china" ? (
             <div className="flex gap-1 rounded-md bg-[var(--secondary)] p-1">
@@ -1986,6 +1997,20 @@ export default function Accounts() {
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={uncloseaiBusy}>Cancel</Button>
                 <Button onClick={handleUncloseaiApiKeyLogin} disabled={uncloseaiBusy}>{uncloseaiBusy ? "Validating..." : "Add Account"}</Button>
+              </div>
+            </div>
+          )}
+
+          {addMode === "pat" && addDialogProvider === "chutes" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Chutes API Key</label>
+                <textarea value={chutesApiKey} onChange={(e) => setChutesApiKey(e.target.value)} className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none" placeholder="xxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx" disabled={chutesBusy} />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">Paste Chutes API key dari <a href="https://chutes.ai" target="_blank" rel="noreferrer" className="underline">chutes.ai</a> → API Keys. Server validasi via <code>GET /v1/models</code> (<code>https://llm.chutes.ai/v1</code> fallback <code>api.chutes.ai</code>) dan simpan key terenkripsi. Models: <code>chutes-deepseek-v3</code>, <code>chutes-qwen3-235b</code>, <code>chutes-kimi-k2</code>, <code>chutes-glm-4.7</code> + <code>ch-*</code> dynamic.</p>
+              </div>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)} disabled={chutesBusy}>Cancel</Button>
+                <Button onClick={handleChutesApiKeyLogin} disabled={chutesBusy}>{chutesBusy ? "Validating..." : "Add Account"}</Button>
               </div>
             </div>
           )}
