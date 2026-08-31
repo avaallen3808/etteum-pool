@@ -19,6 +19,9 @@ from app.providers.codex import CodexProviderAdapter
 from app.providers.qoder import QoderProviderAdapter
 from app.providers.gitlab_duo import GitLabDuoProviderAdapter
 from app.providers.deepseek_web import DeepSeekWebProviderAdapter
+from app.providers.gemini_web import GeminiWebProviderAdapter
+from app.providers.qwen_web import QwenWebProviderAdapter
+from app.providers.zai_web import ZaiWebProviderAdapter
 from app.providers.base import NormalizedAccount
 from app.errors.codes import ErrorCode
 from app.errors.exceptions import BatcherError, RetryableBatcherError
@@ -382,10 +385,13 @@ async def main(email: str, password: str):
             "qoder": (QoderProviderAdapter(), NormalizedAccount(provider="qoder", identifier=email, secret=password)),
             "gitlab-duo": (GitLabDuoProviderAdapter(), NormalizedAccount(provider="gitlab-duo", identifier=email, secret=password)),
             "deepseek-web": (DeepSeekWebProviderAdapter(), NormalizedAccount(provider="deepseek-web", identifier=email, secret=password)),
+            "gemini-web": (GeminiWebProviderAdapter(), NormalizedAccount(provider="gemini-web", identifier=email, secret=password)),
+            "qwen-web": (QwenWebProviderAdapter(), NormalizedAccount(provider="qwen-web", identifier=email, secret=password)),
+            "zai-web": (ZaiWebProviderAdapter(), NormalizedAccount(provider="zai-web", identifier=email, secret=password)),
         }
         tasks = []
         task_names = []
-        for name in ["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo", "deepseek-web"]:
+        for name in ["kiro", "kiro-pro", "codebuddy", "canva", "codex", "qoder", "gitlab-duo", "deepseek-web", "gemini-web", "qwen-web", "zai-web"]:
             if allowed_providers and name not in allowed_providers:
                 continue
             adapter, account = provider_specs[name]
@@ -399,7 +405,7 @@ async def main(email: str, password: str):
             else:
                 provider_results[name] = res
         result = {"type": "result"}
-        for name in ["kiro", "kiro-pro", "codebuddy", "wavespeed", "canva", "yepapi", "codex", "qoder", "gitlab-duo", "deepseek-web"]:
+        for name in ["kiro", "kiro-pro", "codebuddy", "wavespeed", "canva", "yepapi", "codex", "qoder", "gitlab-duo", "deepseek-web", "gemini-web", "qwen-web", "zai-web"]:
             result[name] = provider_results.get(name, {"success": False, "provider": name, "error": "skipped"})
         emit(result)
         return
