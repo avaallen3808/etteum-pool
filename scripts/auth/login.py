@@ -389,9 +389,8 @@ async def main(email: str, password: str):
                 task_names.append(name)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         result = {"type": "result"}
-        for name in ["kiro", "kiro-pro", "codebuddy", "wavespeed", "canva", "yepapi", "codex", "qoder", "gitlab-duo"]:
+        for name in ["kiro", "kiro-pro", "codebuddy", "wavespeed", "canva", "yepapi", "codex", "qoder", "gitlab-duo", "deepseek-web"]:
             result[name] = {"success": False, "provider": name, "error": "skipped"}
-        for name, provider_result in zip(task_names, results):
             if isinstance(provider_result, BaseException):
                 provider_result = {"success": False, "provider": name, "error": str(provider_result)}
             result[name] = provider_result
@@ -411,6 +410,9 @@ async def main(email: str, password: str):
     yep_account = NormalizedAccount(
         provider="yepapi", identifier=email, secret=password
     )
+    ds_account = NormalizedAccount(provider="deepseek-web", identifier=email, secret=password)
+    ds_adapter = DeepSeekWebProviderAdapter()
+    ds_skipped = {"success": False, "provider": "deepseek-web", "error": "skipped"}
 
     kiro_adapter = KiroProviderAdapter()
     cb_adapter = CodeBuddyProviderAdapter()
@@ -433,27 +435,32 @@ async def main(email: str, password: str):
             cb_result = await run_provider(cb_adapter, cb_account)
             if isinstance(cb_result, BaseException):
                 cb_result = {"success": False, "provider": "codebuddy", "error": str(cb_result)}
-            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_result, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped}
+            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_result, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped, "deepseek-web": ds_skipped}
         elif priority == "wavespeed":
             ws_result = await run_provider(ws_adapter, ws_account)
             if isinstance(ws_result, BaseException):
                 ws_result = {"success": False, "provider": "wavespeed", "error": str(ws_result)}
-            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_result, "canva": canva_skipped, "yepapi": yep_skipped}
+            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_result, "canva": canva_skipped, "yepapi": yep_skipped, "deepseek-web": ds_skipped}
         elif priority == "canva":
             canva_result = await run_provider(canva_adapter, canva_account)
             if isinstance(canva_result, BaseException):
                 canva_result = {"success": False, "provider": "canva", "error": str(canva_result)}
-            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_result, "yepapi": yep_skipped}
+            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_result, "yepapi": yep_skipped, "deepseek-web": ds_skipped}
         elif priority == "yepapi":
             yep_result = await run_provider(yep_adapter, yep_account)
             if isinstance(yep_result, BaseException):
                 yep_result = {"success": False, "provider": "yepapi", "error": str(yep_result)}
-            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_result}
+            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_result, "deepseek-web": ds_skipped}
+        elif priority == "deepseek-web":
+            ds_result = await run_provider(ds_adapter, ds_account)
+            if isinstance(ds_result, BaseException):
+                ds_result = {"success": False, "provider": "deepseek-web", "error": str(ds_result)}
+            result = {"type": "result", "kiro": kiro_skipped, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped, "deepseek-web": ds_result}
         else:
             kiro_result = await run_provider(kiro_adapter, kiro_account)
             if isinstance(kiro_result, BaseException):
                 kiro_result = {"success": False, "provider": "kiro", "error": str(kiro_result)}
-            result = {"type": "result", "kiro": kiro_result, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped}
+            result = {"type": "result", "kiro": kiro_result, "codebuddy": cb_skipped, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped, "deepseek-web": ds_skipped}
         emit(result)
         return
 
@@ -461,13 +468,12 @@ async def main(email: str, password: str):
         kiro_result, cb_result = await asyncio.gather(
             run_provider(kiro_adapter, kiro_account),
             run_provider(cb_adapter, cb_account),
-            return_exceptions=True,
         )
         if isinstance(kiro_result, BaseException):
             kiro_result = {"success": False, "provider": "kiro", "error": str(kiro_result)}
         if isinstance(cb_result, BaseException):
             cb_result = {"success": False, "provider": "codebuddy", "error": str(cb_result)}
-        result = {"type": "result", "kiro": kiro_result, "codebuddy": cb_result, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped}
+        result = {"type": "result", "kiro": kiro_result, "codebuddy": cb_result, "wavespeed": ws_skipped, "canva": canva_skipped, "yepapi": yep_skipped, "deepseek-web": ds_skipped}
         emit(result)
         return
 
@@ -514,8 +520,8 @@ async def main(email: str, password: str):
         "wavespeed": ws_result,
         "canva": canva_result,
         "yepapi": yep_result,
+        "deepseek-web": ds_skipped,
     }
-    emit(result)
 
 
 if __name__ == "__main__":
