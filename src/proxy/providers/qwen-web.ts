@@ -33,10 +33,9 @@ export class QwenWebProvider extends BaseProvider {
     return {success:true, response:resp, promptTokens:resp.usage.prompt_tokens, completionTokens:resp.usage.completion_tokens, tokensUsed:resp.usage.total_tokens};
   }
   async chatCompletionStream(a: Account, r: ChatCompletionRequest): Promise<ProviderResult> {
-    const res=await this.chatCompletion(a,r); if(!res.success||!res.response) return res;
-    const text=typeof res.response.choices[0]?.message?.content==="string"?res.response.choices[0].message.content as string:""; const id=this.generateId(); const created=Math.floor(Date.now()/1000);
-    const stream=new ReadableStream<Uint8Array>({ start(c){ const enc=new TextEncoder(); const ch={id, object:"chat.completion.chunk", created, model:r.model, choices:[{index:0, delta:{role:"assistant", content:text}, finish_reason:null}]}; c.enqueue(enc.encode(`data: ${JSON.stringify(ch)}\n\n`)); const done={id, object:"chat.completion.chunk", created, model:r.model, choices:[{index:0, delta:{}, finish_reason:"stop"}]}; c.enqueue(enc.encode(`data: ${JSON.stringify(done)}\n\n`)); c.enqueue(enc.encode("data: [DONE]\n\n")); c.close(); }});
-    return {success:true, stream, promptTokens:0, completionTokens:0, tokensUsed:0};
+    const c=this.getCookie(a); if(!c) return {success:false, error:"No Qwen cookie (paste Cookie header from chat.qwen.ai)"};
+    const last=[...r.messages].reverse().find((m)=>m.role==="user"); const prompt=typeof last?.content==="string"?last.content:JSON.stringify(last?.content||"");
+    return this.webWorkerStream({ worker: WORKER, tmpPrefix: "qwen", site: "qwen", prompt, messages: r.messages, cookies: c, model: r.model, timeoutMs: 60000 });
   }
   async refreshToken(): Promise<{success:boolean; tokens?:string; error?:string}> { return {success:false, error:"Qwen web requires cookie refresh"}; }
   async validateAccount(a: Account): Promise<boolean> { return !!this.getCookie(a); }
