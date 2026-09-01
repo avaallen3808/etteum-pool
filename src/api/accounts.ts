@@ -1194,7 +1194,7 @@ accountsRouter.get("/:id", async (c) => {
  */
 accountsRouter.post("/", async (c) => {
   const body = await c.req.json<{
-    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai" | "chutes";
+    provider: "kiro" | "kiro-pro" | "codebuddy" | "codebuddy-china" | "canva" | "codex" | "qoder" | "gitlab-duo" | "youmind" | "opencode" | "groq" | "openrouter" | "bai" | "cerebras" | "mistral" | "nvidia" | "uncloseai" | "chutes" | "gemini-web" | "deepseek-web" | "qwen-web" | "zai-web";
     email?: string;
     password?: string;
     personalToken?: string;
@@ -1649,14 +1649,21 @@ accountsRouter.post("/", async (c) => {
     }, 201);
   }
 
-  if (!body.email || !body.password) {
+  if (!body.email) {
     return c.json(
-      { error: "email and password are required" },
+      { error: "email is required" },
+      400
+    );
+  }
+  const isWebToken = body.tokens && ["qwen-web", "zai-web", "deepseek-web", "gemini-web"].includes(body.provider);
+  if (!body.password && !isWebToken) {
+    return c.json(
+      { error: "password is required" },
       400
     );
   }
 
-  const encryptedPassword = encrypt(body.password);
+  const encryptedPassword = body.password ? encrypt(body.password) : encrypt("web-token-" + Date.now());
 
   const newAccount: NewAccount = {
     provider: body.provider,

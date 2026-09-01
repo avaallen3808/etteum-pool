@@ -101,12 +101,12 @@ export default function Accounts() {
   const [settingsMap, setSettingsMap] = useState<Record<string, string>>({});
   const [now, setNow] = useState<number>(Date.now());
 
-  const [addForm, setAddForm] = useState({ email: "", password: "", provider: "kiro" as Provider, browserEngine: "camoufox", headless: false });
+  const [addForm, setAddForm] = useState({ email: "", password: "", token: "", provider: "kiro" as Provider, browserEngine: "camoufox", headless: false });
   const [addDialogProvider, setAddDialogProvider] = useState<Provider | null>(null);
   const [instantTokens, setInstantTokens] = useState("");
   const [cookieValue, setCookieValue] = useState("");
   const [bulkText, setBulkText] = useState("");
-  const [addMode, setAddMode] = useState<"single" | "bulk" | "instant" | "pat" | "apikey">("bulk");
+  const [addMode, setAddMode] = useState<"single" | "bulk" | "instant" | "pat" | "apikey" | "token">("bulk");
   const [bulkBrowserEngine, setBulkBrowserEngine] = useState("camoufox");
   const [bulkHeadless, setBulkHeadless] = useState(true);
   const [bulkConcurrency, setBulkConcurrency] = useState(3);
@@ -138,6 +138,8 @@ export default function Accounts() {
   const [chutesApiKey, setChutesApiKey] = useState("");
   const [chutesBusy, setChutesBusy] = useState(false);
   const [codebuddyChinaApiKey, setCodebuddyChinaApiKey] = useState("");
+  const [codebuddyChinaBusy, setCodebuddyChinaBusy] = useState(false);
+  const [codebuddyChinaBulkApiKeys, setCodebuddyChinaBulkApiKeys] = useState("");
   const [loginPendingDialog, setLoginPendingDialog] = useState(false);
   const [loginPendingConcurrency, setLoginPendingConcurrency] = useState(2);
   const [byokProviders, setByokProviders] = useState<ByokProvider[]>([]);
@@ -353,10 +355,18 @@ export default function Accounts() {
   async function handleAdd() {
     if (!addDialogProvider) return;
     try {
-      const payload: any = { email: addForm.email, password: addForm.password, provider: addDialogProvider, headless: addForm.headless, browserEngine: addForm.browserEngine };
+      const isWebToken = addMode === "token" && addForm.token.trim();
+      const payload: Parameters<typeof createAccount>[0] = {
+        email: addForm.email,
+        password: addForm.password,
+        provider: addDialogProvider,
+        headless: addForm.headless,
+        browserEngine: addForm.browserEngine,
+        ...(isWebToken ? { tokens: { token: addForm.token.trim() } } : {}),
+      };
       await createAccount(payload);
-      showSuccess("Account added and bot login started.");
-      setAddForm({ email: "", password: "", provider: "kiro", browserEngine: "camoufox", headless: false });
+      showSuccess(isWebToken ? "Account added with token." : "Account added and bot login started.");
+      setAddForm({ email: "", password: "", token: "", provider: "kiro", browserEngine: "camoufox", headless: false });
       setAddDialogProvider(null);
       await load();
       navigate("/bot-logs");
@@ -812,6 +822,20 @@ export default function Accounts() {
     await safeCopyText(codexOauthAuthUrl, "Auth URL copied");
   }
 
+  function handleCodexOAuthOpenManual() {
+    if (!codexOauthAuthUrl) return;
+    window.open(codexOauthAuthUrl, "_blank");
+  }
+
+  async function handleCodexOAuthPasteCallback() {
+    try {
+      const text = await navigator.clipboard.readText();
+      if (text) setCodexOauthCallbackUrl(text);
+    } catch {
+      showError(new Error("Clipboard read failed. Paste manually."));
+    }
+  }
+
   function handleOpenAddDialog(provider: Provider) {
     resetCodexOAuthFlow();
     if (provider === "codex") {
@@ -849,6 +873,9 @@ export default function Accounts() {
     }
     if (provider === "chutes") {
       setAddMode("pat");
+    }
+    if (provider === "qwen-web" || provider === "zai-web" || provider === "deepseek-web" || provider === "gemini-web") {
+      setAddMode("token");
     }
     setAddDialogProvider(provider);
   }
@@ -1796,6 +1823,11 @@ export default function Accounts() {
               <button onClick={() => setAddMode("single")}
                 className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "single" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
               >Single</button>
+              {(addDialogProvider === "qwen-web" || addDialogProvider === "zai-web" || addDialogProvider === "deepseek-web" || addDialogProvider === "gemini-web") && (
+                <button onClick={() => setAddMode("token")}
+                  className={`flex-1 rounded px-3 py-1.5 text-xs font-medium transition-colors ${addMode === "token" ? "bg-[var(--background)] text-[var(--foreground)] shadow-sm" : "text-[var(--muted-foreground)]"}`}
+                >Token (Paste)</button>
+              )}
             </div>
           )}
 
@@ -2254,6 +2286,22 @@ ck_xyz789ghi012..."
                 <label className="text-sm text-[var(--foreground)]">Password</label>
                 <Input value={addForm.password} onChange={(e) => setAddForm({ ...addForm, password: e.target.value })} type="password" placeholder="********" className="mt-1" />
               </div>
+              {(addDialogProvider === "qwen-web" || addDialogProvider === "zai-web" || addDialogProvider === "deepseek-web" || addDialogProvider === "gemini-web") && (
+                <div>
+                  <label className="text-sm text-[var(--foreground)]">Token (localStorage)</label>
+                  <textarea
+                    value={addForm.token}
+                    onChange={(e) => setAddForm({ ...addForm, token: e.target.value })}
+                    className="mt-1 w-full h-24 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none"
+                    placeholder={addDialogProvider === "deepseek-web" ? '{"token":"...","loginKey":"..."}' : "eyJhbGciOiJI... (paste localStorage token)"}
+                  />
+                  <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                    Buka {addDialogProvider === "deepseek-web" ? "chat.deepseek.com" : addDialogProvider === "qwen-web" ? "chat.qwen.ai" : addDialogProvider === "zai-web" ? "chat.z.ai" : "gemini.google.com"} →
+                    DevTools → Application → Local Storage → paste {addDialogProvider === "deepseek-web" ? "userToken" : "token"} value.
+                    Account akan di-set active langsung tanpa login bot.
+                  </p>
+                </div>
+              )}
               <div>
                 <label className="text-sm text-[var(--foreground)]">Browser Engine</label>
                 <select value={addForm.browserEngine} onChange={(e) => setAddForm({ ...addForm, browserEngine: e.target.value })} className="mt-1 w-full h-9 rounded-md border border-[var(--border)] bg-[var(--background)] px-3 text-sm text-[var(--foreground)]">
@@ -2265,6 +2313,33 @@ ck_xyz789ghi012..."
                 <input type="checkbox" checked={addForm.headless} onChange={(e) => setAddForm({ ...addForm, headless: e.target.checked })} className="h-4 w-4 rounded border-[var(--border)]" />
                 Run browser headless
               </label>
+              <div className="flex justify-end gap-2">
+                <Button variant="outline" onClick={() => setAddDialogProvider(null)}>Cancel</Button>
+                <Button onClick={handleAdd}>Add Account</Button>
+              </div>
+            </div>
+          )}
+
+          {/* Token mode (web providers: qwen/zai/deepseek/gemini) */}
+          {addMode === "token" && (
+            <div className="space-y-4">
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Email</label>
+                <Input value={addForm.email} onChange={(e) => setAddForm({ ...addForm, email: e.target.value })} placeholder="email@example.com" className="mt-1" />
+              </div>
+              <div>
+                <label className="text-sm text-[var(--foreground)]">Token (localStorage)</label>
+                <textarea
+                  value={addForm.token}
+                  onChange={(e) => setAddForm({ ...addForm, token: e.target.value })}
+                  className="mt-1 w-full h-32 rounded-md border border-[var(--border)] bg-[var(--background)] p-3 text-sm font-mono text-[var(--foreground)] placeholder:text-[var(--muted-foreground)] focus:outline-none focus:ring-1 focus:ring-[var(--ring)] resize-none"
+                  placeholder={addDialogProvider === "deepseek-web" ? '{"token":"...","loginKey":"..."}' : "eyJhbGciOiJI... (paste localStorage token)"}
+                />
+                <p className="mt-1 text-xs text-[var(--muted-foreground)]">
+                  Buka {addDialogProvider === "deepseek-web" ? "chat.deepseek.com" : addDialogProvider === "qwen-web" ? "chat.qwen.ai" : addDialogProvider === "zai-web" ? "chat.z.ai" : "gemini.google.com"} → DevTools → Application → Local Storage → paste {addDialogProvider === "deepseek-web" ? "userToken" : "token"} value.
+                  Account akan di-set active langsung tanpa login bot.
+                </p>
+              </div>
               <div className="flex justify-end gap-2">
                 <Button variant="outline" onClick={() => setAddDialogProvider(null)}>Cancel</Button>
                 <Button onClick={handleAdd}>Add Account</Button>

@@ -360,7 +360,7 @@ export async function fetchProviderList(): Promise<{ data: string[] }> {
   return fetchApi("/api/settings/providers");
 }
 
-export async function createAccount(account: { provider: string; email: string; password: string; browserEngine?: string; headless?: boolean }) {
+export async function createAccount(account: { provider: string; email: string; password: string; tokens?: Record<string, unknown>; browserEngine?: string; headless?: boolean }) {
   return fetchApi("/api/accounts", {
     method: "POST",
     body: JSON.stringify(account),
