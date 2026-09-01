@@ -87,9 +87,10 @@ async def run_gemini(prompt, cookies, messages=None, emit=None):
                     if texts:
                         last = texts[-1].strip()
                         if last and len(last) > 5 and last != prompt and last != prev:
+                            prev_before = prev
                             prev = last
                             if emit:
-                                emit({"delta": last})
+                                emit({"delta": last[len(prev_before):] if prev_before and last.startswith(prev_before) else last})
                             await page.wait_for_timeout(1500)
                             texts2 = await page.locator('message-content, div[data-test-id="response-container"], div.model-response-text').all_inner_texts()
                             last2 = texts2[-1].strip() if texts2 else ""
