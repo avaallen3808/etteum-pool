@@ -12,7 +12,7 @@ export class ZaiWebProvider extends BaseProvider {
     { id: "glm-4.7-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 4000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
   ];
   override ownsModel(m: string): boolean { const l=m.toLowerCase(); return l.startsWith("zai-web") || l.startsWith("glm-web") || l==="zai_web" || l.startsWith("zai/"); }
-  private getCookie(a: Account): string { try{ const c=decrypt(a.password); if(c) return c; }catch{} const t=(a.tokens as unknown as Record<string,unknown>); if(t?.cookie) return String(t.cookie); if(t?.token) return String(t.token); return ""; }
+  private getCookie(a: Account): string { const t=(a.tokens as unknown as Record<string,unknown>); if(t?.token) return String(t.token); if(t?.cookie) return String(t.cookie); try{ const c=decrypt(a.password); if(c) return c; }catch{} return ""; }
   private async run(input: Record<string,unknown>, to:number): Promise<Out> {
     const tmp=`/tmp/zai_${Date.now()}_${Math.random().toString(36).slice(2)}.json`;
     await Bun.write(tmp, JSON.stringify(input));

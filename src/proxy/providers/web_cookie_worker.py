@@ -233,18 +233,30 @@ async def run_zai(prompt, cookies, messages=None):
             prev = ""
             for _ in range(12):
                 try:
-                    texts = await page.locator('div[class*="message"], div[class*="answer"]').all_inner_texts()
+                    texts = await page.locator('div[class*="markdown"]').all_inner_texts()
                     candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt]
                     last = candidates[-1] if candidates else ""
-                    if last and last != prev:
-                        prev = last
-                        await page.wait_for_timeout(1500)
-                        texts2 = await page.locator('div[class*="message"], div[class*="answer"]').all_inner_texts()
-                        cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
-                        last2 = cand2[-1] if cand2 else ""
-                        if last2 and last2 == last:
-                            await browser.close()
-                            return {"ok": True, "text": last2}
+                    if last:
+                        # strip "Thought Process\n\n" prefix if present
+                        if "Thought Process" in last:
+                            last = last.split("Thought Process", 1)[-1].strip()
+                            if last.startswith("\n"):
+                                last = last[2:].strip()
+                        if last != prev:
+                            prev = last
+                            await page.wait_for_timeout(1500)
+                            texts2 = await page.locator('div[class*="markdown"]').all_inner_texts()
+                            cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
+                            last2 = cand2[-1] if cand2 else ""
+                            if "Thought Process" in last2:
+                                last2 = last2.split("Thought Process", 1)[-1].strip()
+                                if last2.startswith("\n"):
+                                    last2 = last2[2:].strip()
+                            if last2 and last2 == last:
+                                await browser.close()
+                                return {"ok": True, "text": last2}
+                            elif last2 and last2 != last:
+                                prev = last2
                 except:
                     pass
                 await page.wait_for_timeout(2000)
