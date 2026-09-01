@@ -10,8 +10,10 @@ export class QwenWebProvider extends BaseProvider {
   supportedModels: ModelInfo[] = [
     { id: "qwen-web", object: "model" as const, created: Date.now(), owned_by: "qwen-web", context_window: 128000, max_output: 4000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
     { id: "qwen3-max-web", object: "model" as const, created: Date.now(), owned_by: "qwen-web", context_window: 128000, max_output: 4000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
+    { id: "qwen3.7-plus-web", object: "model" as const, created: Date.now(), owned_by: "qwen-web", context_window: 128000, max_output: 8000, thinking: true, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
+    { id: "qwen3.8-max-web", object: "model" as const, created: Date.now(), owned_by: "qwen-web", context_window: 128000, max_output: 8000, thinking: true, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
   ];
-  override ownsModel(m: string): boolean { const l=m.toLowerCase(); return l.startsWith("qwen-web") || l==="qwen_web" || l.startsWith("qwen3-web"); }
+  override ownsModel(m: string): boolean { const l=m.toLowerCase(); return l.startsWith("qwen-web") || l==="qwen_web" || l.startsWith("qwen3-web") || l.startsWith("qwen3."); }
   private getCookie(a: Account): string { const t=(a.tokens as unknown as Record<string,unknown>); if(t?.token) return String(t.token); if(t?.cookie) return String(t.cookie); try{ const c=decrypt(a.password); if(c) return c; }catch{} return ""; }
   private async run(input: Record<string,unknown>, to:number): Promise<Out> {
     const tmp=`/tmp/qwen_${Date.now()}_${Math.random().toString(36).slice(2)}.json`;
