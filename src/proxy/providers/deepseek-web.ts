@@ -12,7 +12,7 @@ export class DeepSeekWebProvider extends BaseProvider {
     { id: "deepseek-v3-web", object: "model" as const, created: Date.now(), owned_by: "deepseek-web", context_window: 128000, max_output: 4000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
   ];
   override ownsModel(m: string): boolean { const l=m.toLowerCase(); return l.startsWith("deepseek-web") || l==="dsw" || l==="deepseek_web"; }
-  private getCookie(a: Account): string { const t=(a.tokens as unknown as Record<string,unknown>); if(t?.cookie) return String(t.cookie); if(typeof a.tokens==="string" && a.tokens.includes("userToken")) return a.tokens; try{ const c=decrypt(a.password); if(c) return c; }catch{} return ""; }
+  private getCookie(a: Account): string { const t=(a.tokens as unknown as Record<string,unknown>); if(t?.token) return String(t.token); if(t?.cookie) return String(t.cookie); if(typeof a.tokens==="string" && a.tokens.includes("userToken")) return a.tokens; try{ const c=decrypt(a.password); if(c) return c; }catch{} return ""; }
   private async run(input: Record<string,unknown>, to:number): Promise<Out> {
     const tmp=`/tmp/dsw_${Date.now()}_${Math.random().toString(36).slice(2)}.json`;
     await Bun.write(tmp, JSON.stringify(input));

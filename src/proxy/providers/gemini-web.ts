@@ -12,7 +12,7 @@ export class GeminiWebProvider extends BaseProvider {
     { id: "gemini-2.5-flash-web", object: "model" as const, created: Date.now(), owned_by: "gemini-web", context_window: 1000000, max_output: 8000, thinking: false, vision: true, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
   ];
   override ownsModel(m: string): boolean { const l = m.toLowerCase(); return l.startsWith("gemini-web") || l === "gweb" || l === "gemini_web"; }
-  private getCookie(a: Account): string { try { const c = decrypt(a.password); return c; } catch { return ""; } try { const t = a.tokens as unknown as Record<string,unknown>; if (t?.cookie) return String(t.cookie); } catch {} return ""; }
+  private getCookie(a: Account): string { try { const t = a.tokens as unknown as Record<string,unknown>; if (t?.token) return String(t.token); if (t?.cookie) return String(t.cookie); } catch {} try { const c = decrypt(a.password); if (c) return c; } catch {} return ""; }
   private async run(input: Record<string, unknown>, to: number): Promise<Out> {
     const tmp = `/tmp/gemini_${Date.now()}_${Math.random().toString(36).slice(2)}.json`;
     await Bun.write(tmp, JSON.stringify(input));
