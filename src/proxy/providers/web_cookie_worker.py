@@ -303,7 +303,7 @@ async def run_zai(prompt, cookies, messages=None, emit=None):
                     return {"ok": False, "error": "Rate limited (ZAI)", "rate_limited": True}
                 try:
                     texts = await page.locator('div[class*="markdown"]').all_inner_texts()
-                    candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt]
+                    candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt and t.strip() != "Thinking..." and t.strip() != "Thinking" and not t.strip().startswith("Thinking")]
                     last = candidates[-1] if candidates else ""
                     if last:
                         # strip "Thought Process\n\n" prefix if present
@@ -319,7 +319,7 @@ async def run_zai(prompt, cookies, messages=None, emit=None):
                             prev = last
                             await page.wait_for_timeout(1500)
                             texts2 = await page.locator('div[class*="markdown"]').all_inner_texts()
-                            cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
+                            cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt and not t.strip().startswith("Thinking")]
                             last2 = cand2[-1] if cand2 else ""
                             if "Thought Process" in last2:
                                 last2 = last2.split("Thought Process", 1)[-1].strip()
