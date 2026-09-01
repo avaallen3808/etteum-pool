@@ -10,8 +10,12 @@ export class ZaiWebProvider extends BaseProvider {
   supportedModels: ModelInfo[] = [
     { id: "zai-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 4000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
     { id: "glm-4.7-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 4000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
+    { id: "glm-5.3-flash-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 8000, thinking: false, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
+    { id: "glm-5.3-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 8000, thinking: true, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
+    { id: "glm-5.2-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 8000, thinking: true, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
+    { id: "glm-5-turbo-web", object: "model" as const, created: Date.now(), owned_by: "zai-web", context_window: 128000, max_output: 8000, thinking: true, vision: false, creditUnit: "token" as const, creditRate: 0, creditSource: "estimated" as const },
   ];
-  override ownsModel(m: string): boolean { const l=m.toLowerCase(); return l.startsWith("zai-web") || l.startsWith("glm-web") || l==="zai_web" || l.startsWith("zai/"); }
+  override ownsModel(m: string): boolean { const l=m.toLowerCase(); return l.startsWith("zai-web") || l.startsWith("glm") || l==="zai_web" || l.startsWith("zai/"); }
   private getCookie(a: Account): string { const t=(a.tokens as unknown as Record<string,unknown>); if(t?.token) return String(t.token); if(t?.cookie) return String(t.cookie); try{ const c=decrypt(a.password); if(c) return c; }catch{} return ""; }
   private async run(input: Record<string,unknown>, to:number): Promise<Out> {
     const tmp=`/tmp/zai_${Date.now()}_${Math.random().toString(36).slice(2)}.json`;
