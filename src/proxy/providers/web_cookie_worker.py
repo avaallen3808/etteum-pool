@@ -20,14 +20,11 @@ CHROME_ARGS = ["--no-sandbox", "--disable-blink-features=AutomationControlled"]
 REAL_UA = "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/151.0.0.0 Safari/537.36"
 
 
-async def run_gemini(prompt: str, cookies: str, messages=None):
+async def run_gemini(prompt, cookies, messages=None):
     from playwright.async_api import async_playwright
-    # gemini.google.com uses __Secure-1PSID cookie for auth, then uses batchexecute or gemini API via blazer
-    # Simplified: use playwright to open gemini and extract response via exposed API
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
         context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
-        # Add cookies
         cookie_list = []
         for part in cookies.split(";"):
             part = part.strip()
@@ -44,17 +41,13 @@ async def run_gemini(prompt: str, cookies: str, messages=None):
         try:
             await page.goto("https://gemini.google.com/app", wait_until="domcontentloaded", timeout=30000)
             await page.wait_for_timeout(3000)
-            # Try to find input box and send prompt
-            # Gemini's input is a contenteditable div with aria-label
             input_sel = 'div[contenteditable="true"][aria-label*="Ask"] , div[aria-label*="Ask Gemini"] , rich-textarea div[contenteditable="true"]'
             try:
                 await page.locator(input_sel).first.fill(prompt, timeout=10000)
                 await page.keyboard.press("Enter")
             except:
                 return {"ok": False, "error": "Gemini input not found — cookie may be invalid or page changed"}
-            # Wait for response
             await page.wait_for_timeout(8000)
-            # Try to extract last response
             for _ in range(15):
                 try:
                     texts = await page.locator('message-content, div[data-test-id="response-container"], div.model-response-text').all_inner_texts()
@@ -73,32 +66,27 @@ async def run_gemini(prompt: str, cookies: str, messages=None):
             return {"ok": False, "error": str(e)}
 
 
-async def run_deepseek(prompt: str, cookies: str, messages=None):
+async def run_deepseek(prompt, cookies, messages=None):
     from playwright.async_api import async_playwright
-    # chat.deepseek.com uses userToken in localStorage
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
         context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
         page = await context.new_page()
         try:
             await page.goto("https://chat.deepseek.com/", wait_until="domcontentloaded", timeout=30000)
-            # Set userToken in localStorage if provided as "userToken=xxx" or raw token
             token = cookies.strip()
             if "userToken" in token:
                 if "=" in token:
                     token = token.split("=", 1)[1].strip()
-                # Token is JSON like {"value": "...", "__version": "0"} — serialize
-                # it as a JS literal so quotes/backslashes survive evaluate().
                 try:
                     parsed = json.loads(token)
-                    token_literal = json.dumps(json.dumps(parsed))
+                    token_literal = json.dumps(parsed)
                 except json.JSONDecodeError:
-                    token_literal = json.dumps(json.dumps(token))
+                    token_literal = json.dumps(token)
             else:
-                token_literal = json.dumps(json.dumps(token))
+                token_literal = json.dumps(token)
             await page.evaluate("localStorage.setItem('userToken', " + token_literal + ")")
             await page.reload(wait_until="domcontentloaded")
-            # Wait for the chat input to be interactive (login state ready)
             try:
                 await page.locator(
                     'textarea[placeholder*="Message"], textarea[placeholder*="Send"], '
@@ -114,25 +102,21 @@ async def run_deepseek(prompt: str, cookies: str, messages=None):
                 await page.keyboard.press("Enter")
             except Exception:
                 return {"ok": False, "error": "DeepSeek input not found"}
-            await page.wait_for_timeout(6000)
             prev = ""
-            for _ in range(12):
+            for _ in range(15):
                 try:
                     texts = await page.locator('div[class*="message"], div.ds-message, div[class*="response"]').all_inner_texts()
-                    if texts:
-                        # skip the user's own prompt bubble; grab the last distinct assistant reply
-                        candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt]
-                        last = candidates[-1] if candidates else ""
-                        if last and last != prev:
-                            prev = last
-                            # give streaming a moment to settle, then confirm it is stable
-                            await page.wait_for_timeout(1500)
-                            texts2 = await page.locator('div[class*="message"], div.ds-message, div[class*="response"]').all_inner_texts()
-                            cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
-                            last2 = cand2[-1] if cand2 else ""
-                            if last2 and last2 == last:
-                                await browser.close()
-                                return {"ok": True, "text": last2}
+                    candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt]
+                    cur = candidates[-1] if candidates else ""
+                    if cur and cur != prev:
+                        prev = cur
+                        await page.wait_for_timeout(1500)
+                        texts2 = await page.locator('div[class*="message"], div.ds-message, div[class*="response"]').all_inner_texts()
+                        cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt]
+                        last2 = cand2[-1] if cand2 else ""
+                        if last2 and last2 == cur:
+                            await browser.close()
+                            return {"ok": True, "text": last2}
                 except:
                     pass
                 await page.wait_for_timeout(2000)
@@ -143,83 +127,81 @@ async def run_deepseek(prompt: str, cookies: str, messages=None):
             return {"ok": False, "error": str(e)}
 
 
-async def run_qwen(prompt: str, cookies: str, messages=None):
+async def run_qwen(prompt, cookies, messages=None):
     from playwright.async_api import async_playwright
-    # chat.qwen.ai uses a full cookie jar (x-ap, sca, cna, tfstk, isg, ...)
-    # for tracking + session. No JWT in localStorage — auth rides on cookies.
+    # Qwen auth: JWT in localStorage["token"] + desktop spoof so the frontend
+    # attaches Authorization: Bearer to every API call. Desktop spoof requires:
+    #   - window.electronAPI (injected via add_init_script before page load)
+    #   - userAgent containing "AliDesktop(QWENCHAT/x.y.z)"
+    token = cookies.strip()
+    if token.lower().startswith("token="):
+        token = token.split("=", 1)[1].strip()
+    if token.lower().startswith("bearer "):
+        token = token[7:].strip()
+    if len(token.split(".")) != 3 or len(token) < 40:
+        return {"ok": False, "error": "Qwen requires a JWT token (localStorage.getItem('token') on chat.qwen.ai) — cookies no longer work"}
+    DESKTOP_UA = REAL_UA + " AliDesktop(QWENCHAT/2.0.0)"
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
-        context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
-        # Add cookies on all qwen domains
-        cookie_list = []
-        for part in cookies.split(";"):
-            part = part.strip()
-            if "=" not in part:
-                continue
-            name, value = part.split("=", 1)
-            for dom in [".qwen.ai", ".chat.qwen.ai", "chat.qwen.ai", "qwen.ai"]:
-                cookie_list.append({"name": name.strip(), "value": value.strip(), "domain": dom, "path": "/"})
-        if cookie_list:
-            try:
-                await context.add_cookies(cookie_list)
-            except:
-                pass
+        context = await browser.new_context(user_agent=DESKTOP_UA, locale="en-US", viewport={"width": 1440, "height": 900})
+        await context.add_init_script("window.electronAPI = {};")
         page = await context.new_page()
         try:
-            await page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=30000)
-            await page.wait_for_timeout(3000)
-            # If guest chat is login-walled, bail fast with a clear error
-            body0 = await page.evaluate("document.body.innerText")
-            if "Log in to unlock" in body0 or ("Log in" in body0 and "Sign up" in body0):
+            await page.goto("https://chat.qwen.ai/", wait_until="domcontentloaded", timeout=40000)
+            await page.wait_for_timeout(4000)
+            await page.evaluate(f'localStorage.setItem("token", {json.dumps(token)})')
+            await page.reload(wait_until="domcontentloaded")
+            # Wait for the app's OWN auth request to return 200 (the app's
+            # interceptor auto-attaches Authorization: Bearer via desktop
+            # spoof — our own fetch() would miss the header).
+            logged_in = False
+            for attempt in range(2):
+                for _ in range(10):
+                    await page.wait_for_timeout(1500)
+                    try:
+                        body = await page.evaluate("document.body.innerText")
+                        if "Log in" not in body and "Sign up" not in body:
+                            logged_in = True
+                            break
+                    except:
+                        pass
+                if logged_in:
+                    break
+                if attempt == 0 and not logged_in:
+                    await page.evaluate(f'localStorage.setItem("token", {json.dumps(token)})')
+                    await page.reload(wait_until="domcontentloaded")
+            if not logged_in:
                 await browser.close()
-                return {"ok": False, "error": "Qwen requires login - cookie is anonymous (no auth session)"}
+                return {"ok": False, "error": "Qwen login wall still present — token rejected or expired"}
             # Wait for the chat input to be interactive
+            input_el = page.locator('textarea, div[contenteditable="true"]').first
             try:
-                input_el = page.locator(
-                    'textarea.message-input-textarea, textarea[placeholder*="Ask"], textarea, div[contenteditable="true"]'
-                ).first
                 await input_el.wait_for(state="visible", timeout=30000)
-                await input_el.fill(prompt, timeout=10000)
-                await page.keyboard.press("Enter")
             except Exception:
+                await browser.close()
                 return {"ok": False, "error": "Qwen input not found"}
-            await page.wait_for_timeout(6000)
-            prev = ""
-            for _ in range(12):
-                # bail out early if the login wall popped up after sending
-                body = await page.evaluate("document.body.innerText")
-                if "Log in to unlock" in body:
-                    await browser.close()
-                    return {"ok": False, "error": "Qwen requires login - cookie is anonymous (no auth session)"}
+            await input_el.fill(prompt, timeout=10000)
+            await page.keyboard.press("Enter")
+            # Poll for the assistant answer: two identical reads = stream finished
+            last = ""
+            stable = 0
+            deadline = time.time() + 60
+            while time.time() < deadline:
                 try:
-                    texts = await page.locator(
-                        'div[class*="markdown"], div[class*="md-body"], '
-                        'div[class*="message-content"], div[class*="answer-content"], '
-                        'div[class*="ds-markdown"], pre'
-                    ).all_inner_texts()
-                    candidates = [t.strip() for t in texts if t.strip() and t.strip() != prompt and "How can I help you?" not in t and len(t.strip()) > 1]
-                    last = candidates[-1] if candidates else ""
-                    if last and last != prev:
-                        prev = last
-                        await page.wait_for_timeout(1500)
-                        texts2 = await page.locator(
-                            'div[class*="markdown"], div[class*="md-body"], '
-                            'div[class*="message-content"], div[class*="answer-content"], '
-                            'div[class*="ds-markdown"], pre'
-                        ).all_inner_texts()
-                        cand2 = [t.strip() for t in texts2 if t.strip() and t.strip() != prompt and "How can I help you?" not in t and len(t.strip()) > 1]
-                        last2 = cand2[-1] if cand2 else ""
-                        if last2 and last2 == last:
+                    texts = await page.locator('div.response-message-content.t2t').all_inner_texts()
+                    cand = [t.strip() for t in texts if t.strip() and t.strip() != prompt and "Auto" != t.strip() and "AI-generated content" not in t]
+                    cur = cand[-1] if cand else ""
+                    if cur and cur == last:
+                        stable += 1
+                        if stable >= 2:
                             await browser.close()
-                            return {"ok": True, "text": last2}
+                            return {"ok": True, "text": cur}
+                    else:
+                        last = cur
+                        stable = 0
                 except:
                     pass
                 await page.wait_for_timeout(2000)
-            # Detect guest/login-block state
-            body = await page.evaluate("document.body.innerText")
-            if "Log in to unlock" in body or ("Log in" in body and "Sign up" in body):
-                await browser.close()
-                return {"ok": False, "error": "Qwen requires login - cookie is anonymous (no auth session)"}
             await browser.close()
             return {"ok": False, "error": "Timeout Qwen"}
         except Exception as e:
@@ -227,9 +209,8 @@ async def run_qwen(prompt: str, cookies: str, messages=None):
             return {"ok": False, "error": str(e)}
 
 
-async def run_zai(prompt: str, cookies: str, messages=None):
+async def run_zai(prompt, cookies, messages=None):
     from playwright.async_api import async_playwright
-    # chat.z.ai uses token in localStorage
     async with async_playwright() as p:
         browser = await p.chromium.launch(headless=True, executable_path=CHROME_EXE, args=CHROME_ARGS)
         context = await browser.new_context(user_agent=REAL_UA, locale="en-US")
@@ -239,7 +220,7 @@ async def run_zai(prompt: str, cookies: str, messages=None):
             token = cookies.strip()
             if "token" in token and "=" in token:
                 token = token.split("=", 1)[1].strip().strip('"')
-            token_literal = json.dumps(json.dumps(token))
+            token_literal = json.dumps(token)
             await page.evaluate("localStorage.setItem('token', " + token_literal + ")")
             await page.reload(wait_until="domcontentloaded")
             await page.wait_for_timeout(3000)
@@ -284,7 +265,6 @@ async def main():
     site = (data.get("site") or "").lower()
     prompt = data.get("prompt") or ""
     if not prompt and data.get("messages"):
-        # Extract last user message
         msgs = data.get("messages") or []
         for m in reversed(msgs):
             if isinstance(m, dict) and m.get("role") == "user":
@@ -303,7 +283,6 @@ async def main():
             prompt = "Hello"
     cookies = data.get("cookies") or data.get("cookie") or ""
     if isinstance(cookies, dict):
-        # Convert dict to header string
         cookies = "; ".join([f"{k}={v}" for k, v in cookies.items()])
     mode = data.get("mode") or "chat"
     if mode == "quota":
