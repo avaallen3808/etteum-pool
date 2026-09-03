@@ -201,7 +201,11 @@ const server = Bun.serve({
     const indexFile = Bun.file(dashboardIndex);
     if (await indexFile.exists()) {
       return new Response(indexFile, {
-        headers: { "Content-Type": "text/html; charset=utf-8" },
+        headers: {
+          "Content-Type": "text/html; charset=utf-8",
+          // index.html references hashed assets; never let browsers cache the shell.
+          "Cache-Control": "no-cache",
+        },
       });
     }
 
