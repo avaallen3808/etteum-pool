@@ -14,6 +14,7 @@ import {
   type ProxyConnectionInfo,
 } from "../lib/client-configs/index";
 import { CLIENT_META } from "../lib/client-configs/types";
+import { resolveExistingPath } from "../lib/client-configs/paths";
 
 export const integrationRouter = new Hono();
 
@@ -326,10 +327,7 @@ integrationRouter.post("/clients/:clientId/restore", async (c) => {
   try {
     const fs = await import("node:fs/promises");
     const pathMod = await import("node:path");
-    const { getPrimaryConfigPath } = await import(
-      "../lib/client-configs/paths"
-    );
-    const configPath = getPrimaryConfigPath(clientId);
+    const configPath = resolveExistingPath(clientId);
     const dir = pathMod.dirname(configPath);
 
     // Find most recent backup

@@ -15,6 +15,7 @@ import {
   Box,
   Hammer,
   PawPrint,
+  Monitor,
 } from "lucide-react";
 import {
   fetchIntegration,
@@ -338,6 +339,9 @@ export default function Integration() {
           <TabsTrigger value="kilo" className="gap-1.5">
             <Zap className="w-3.5 h-3.5" /> Kilo
           </TabsTrigger>
+          <TabsTrigger value="claude-desktop" className="gap-1.5">
+            <Monitor className="w-3.5 h-3.5" /> Claude Desktop
+          </TabsTrigger>
         </TabsList>
 
         {/* ── Claude Tab ──────────────────────────────────────── */}
@@ -470,6 +474,17 @@ export default function Integration() {
               model={clientModels.kilo || defaultModel} models={integrationModels}
               showPreview
               onModelChange={(m) => setClientModels((p) => ({ ...p, kilo: m }))}
+              onApply={handleApplyClient} onRestore={handleRestoreClient} />
+          ))}
+        </TabsContent>
+
+        {/* ── Claude Desktop Tab ──────────────────────────────── */}
+        <TabsContent value="claude-desktop" className="space-y-6">
+          {clients.filter((c) => c.id === "claude-desktop").map((c) => (
+            <ClientCard key={c.id} client={c} baseUrl={baseUrl} apiKey={apiKey}
+              model={defaultModel} models={integrationModels}
+              showPreview
+              onModelChange={() => {}}
               onApply={handleApplyClient} onRestore={handleRestoreClient} />
           ))}
         </TabsContent>

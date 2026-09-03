@@ -8,7 +8,8 @@ export type ClientTarget =
   | "codex"
   | "hermes"
   | "openclaw"
-  | "kilo";
+  | "kilo"
+  | "claude-desktop";
 
 export interface ProxyClientModel {
   id: string;
@@ -99,5 +100,12 @@ export const CLIENT_META: Record<ClientTarget, Omit<ClientMeta, "detected" | "co
     description: "AI coding extension for VS Code",
     cli: "kilo",
     url: "https://github.com/Kilo-Org/kilocode",
+  },
+  "claude-desktop": {
+    id: "claude-desktop",
+    name: "Claude Desktop",
+    description: "Anthropic's Claude Desktop app (3rd-party inference gateway)",
+    cli: "claude-desktop",
+    url: "https://claude.ai/download",
   },
 };

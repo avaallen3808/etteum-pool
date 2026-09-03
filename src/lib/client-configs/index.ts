@@ -19,6 +19,7 @@ import { configureCodex } from "./generators/codex";
 import { configureHermes } from "./generators/hermes";
 import { configureOpenClaw } from "./generators/openclaw";
 import { configureKilo } from "./generators/kilo";
+import { configureClaudeDesktop } from "./generators/claude-desktop";
 
 // ── Generator registry ──────────────────────────────────────────
 
@@ -31,6 +32,7 @@ const GENERATORS: Record<
   hermes: configureHermes,
   openclaw: configureOpenClaw,
   kilo: configureKilo,
+  "claude-desktop": configureClaudeDesktop,
 };
 
 // ── Public API ──────────────────────────────────────────────────

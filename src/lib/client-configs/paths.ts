@@ -45,6 +45,11 @@ const CLIENT_PRIMARY_PATHS: Record<ClientTarget, Partial<Record<NodeJS.Platform,
     darwin: home(".config", "kilo", "kilo.jsonc"),
     linux: home(".config", "kilo", "kilo.jsonc"),
   },
+  "claude-desktop": {
+    win32: home(".config", "Claude-3p", "configLibrary"),
+    darwin: home(".config", "Claude-3p", "configLibrary"),
+    linux: home(".config", "Claude-3p", "configLibrary"),
+  },
 };
 
 /**
@@ -124,6 +129,13 @@ export function resolveExistingPath(clientId: ClientTarget, platform?: NodeJS.Pl
         path.join(dir, "config.json"),
       ];
       return candidates.find((p) => existsSync(p)) || candidates[1]!;
+    }
+    case "claude-desktop": {
+      // Restore targets the profile file; fall back to the _meta.json backup.
+      const dir = home(".config", "Claude-3p", "configLibrary");
+      const profile = path.join(dir, "etteum.json");
+      if (existsSync(profile)) return profile;
+      return path.join(dir, "_meta.json");
     }
     default:
       return getPrimaryConfigPath(clientId, plat);
